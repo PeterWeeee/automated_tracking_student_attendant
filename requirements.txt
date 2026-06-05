@@ -1,0 +1,8 @@
+Flask
+pyodbc
+face_recognition
+numpy
+opencv-python
+requests
+pandas
+xlrd

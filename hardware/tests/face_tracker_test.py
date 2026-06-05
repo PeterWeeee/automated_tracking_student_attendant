@@ -12,7 +12,7 @@ print("Đang tải dữ liệu khuôn mặt...")
 # 1. TẢI ẢNH KHUÔN MẶT (Tạm dùng ảnh cứng để test phần cứng trước)
 # ==============================================================
 try:
-    minh_image = face_recognition.load_image_file("minh.jpg")
+    minh_image = face_recognition.load_image_file("data/minh.jpg")
     minh_face_encoding = face_recognition.face_encodings(minh_image)[0]
     known_face_encodings = [minh_face_encoding]
     known_face_names = ["Minh - Sinh Vien CNTT"]

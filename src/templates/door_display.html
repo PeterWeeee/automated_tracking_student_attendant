@@ -43,10 +43,10 @@
     </div>
 
     <script>
-        // 1. Liên tục lấy ảnh từ Proxy Python để tạo thành Video (10 khung hình/giây)
+        // 1. Liên tục lấy ảnh từ Proxy Python để tạo thành Video (khoảng 30 khung hình/giây)
         setInterval(() => {
-            document.getElementById('camStream').src = "/cam_proxy?" + new Date().getTime();
-        }, 100);
+            document.getElementById('camStream').src = "/api/cam_proxy?" + new Date().getTime();
+        }, 33);
 
         // 2. Liên tục hỏi Backend xem có ai vừa quét mặt thành công không (mỗi 1 giây)
         setInterval(() => {
