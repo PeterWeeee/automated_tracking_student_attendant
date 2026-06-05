@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Màn Hình Cửa Phòng Học</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #00284d; color: white; height: 100vh; overflow: hidden; display: flex; flex-direction: column;}
+        .header { background-color: #ffc107; color: #003a6a; padding: 15px; text-align: center; font-weight: bold; font-size: 1.5rem; letter-spacing: 2px;}
+        .main-container { flex: 1; display: flex; }
+
+        .cam-section { flex: 6; background-color: black; display: flex; align-items: center; justify-content: center; border-right: 5px solid #ffc107;}
+        .cam-section img { width: 100%; height: 100%; object-fit: cover; }
+
+        .info-section { flex: 4; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px; text-align: center;}
+        .avatar-box { width: 250px; height: 250px; border-radius: 50%; border: 8px solid #28a745; background-color: white; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 30px;}
+        .avatar-box img { width: 100%; height: auto; }
+
+        .student-name { font-size: 2.5rem; font-weight: bold; margin-bottom: 10px; color: #ffc107;}
+        .student-id { font-size: 1.5rem; color: #c2c7d0; margin-bottom: 20px;}
+        .status-badge { font-size: 2rem; padding: 15px 40px; border-radius: 50px;}
+    </style>
+</head>
+<body>
+    <div class="header">PHÒNG A113 - MÔN: VẠN VẬT KẾT NỐI</div>
+    <div class="main-container">
+        <div class="cam-section">
+            <img id="camStream" src="/static/placeholder.jpg" alt="Đang chờ Camera...">
+        </div>
+
+        <div class="info-section">
+            <div class="avatar-box">
+                <i id="waitIcon" class="fa-solid fa-user-shield fa-6x text-secondary"></i>
+                <img id="studentAvatar" src="" style="display: none;">
+            </div>
+            <div id="studentName" class="student-name">Hệ thống đang nghỉ</div>
+            <div id="studentId" class="student-id">Vui lòng chờ GV mở điểm danh</div>
+            <div id="timeScan" class="text-light mb-4 fs-4"></div>
+            <span id="statusBadge" class="badge bg-secondary status-badge"><i class="fa-solid fa-lock"></i> ĐÓNG CỬA</span>
+        </div>
+    </div>
+
+    <script>
+        // 1. Liên tục lấy ảnh từ Proxy Python để tạo thành Video (10 khung hình/giây)
+        setInterval(() => {
+            document.getElementById('camStream').src = "/cam_proxy?" + new Date().getTime();
+        }, 100);
+
+        // 2. Liên tục hỏi Backend xem có ai vừa quét mặt thành công không (mỗi 1 giây)
+        setInterval(() => {
+            fetch('/api/latest_scan')
+            .then(res => res.json())
+            .then(data => {
+                let nameEl = document.getElementById('studentName');
+                let idEl = document.getElementById('studentId');
+                let badgeEl = document.getElementById('statusBadge');
+                let timeEl = document.getElementById('timeScan');
+                let avatar = document.getElementById('studentAvatar');
+                let icon = document.getElementById('waitIcon');
+
+                if(data.status === 'success') {
+                    nameEl.textContent = data.hoten;
+                    idEl.textContent = "MSSV: " + data.masv;
+                    timeEl.textContent = "Lúc: " + data.time;
+                    badgeEl.className = "badge bg-success status-badge";
+                    badgeEl.innerHTML = '<i class="fa-solid fa-check-circle"></i> VÀO LỚP HỢP LỆ';
+
+                    // Tạo Avatar xịn xò
+                    icon.style.display = 'none';
+                    avatar.style.display = 'block';
+                    avatar.src = "https://ui-avatars.com/api/?name=" + data.hoten + "&background=28a745&color=fff&size=250";
+                } else if(data.status === 'waiting') {
+                    nameEl.textContent = "Đang chờ quét...";
+                    idEl.textContent = "Vui lòng nhìn vào Camera";
+                    timeEl.textContent = "";
+                    badgeEl.className = "badge bg-primary status-badge";
+                    badgeEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ĐANG QUÉT';
+                    icon.style.display = 'block';
+                    avatar.style.display = 'none';
+                }
+            });
+        }, 1000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+# === Python (File rác khi biên dịch và thư viện ảo) ===
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+
+# === IDEs (File cấu hình riêng của PyCharm / VS Code) ===
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# === Database & Bảo mật (Nếu sau này có lưu file chứa chuỗi kết nối) ===
+*.log
+*.sql.log
+.env
