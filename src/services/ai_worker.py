@@ -10,6 +10,12 @@ import json
 from src.config import Config
 import src.extensions as ext
 
+def trigger_door_open(method, ma_sv):
+    try:
+        requests.get(f"http://{Config.IP_ESP32_S}/open?method={method}&masv={ma_sv}", timeout=2)
+    except Exception as req_e:
+        print(f"[LỖI KẾT NỐI ESP32-S]: {req_e}")
+
 def load_ai_data_from_db():
     print("[HỆ THỐNG] Đang nạp dữ liệu khuôn mặt...")
     try:
@@ -32,51 +38,65 @@ def load_ai_data_from_db():
 
 
 def camera_fetch_worker():
-    session = requests.Session()
-    # Tối ưu hóa TCP Keep-Alive để lấy ảnh mượt hơn và giảm tải cho mạch ESP32
     while True:
         if not ext.camera_is_running:
             time.sleep(1)
             continue
 
+        cap = None
         try:
-            res = session.get(f"http://{Config.IP_ESP32}/cam", timeout=5)
-            if res.status_code == 200:
-                ext.global_latest_frame = res.content
-                setattr(ext, 'camera_error_printed', False)
-        except Exception as e:
-            if not getattr(ext, 'camera_error_printed', False):
-                print(f"\n[LỖI CAMERA] Không thể kết nối tới ESP32 tại địa chỉ IP: {Config.IP_ESP32}")
-                print(f"Chi tiết lỗi: {e}")
-                print("-> Hãy kiểm tra lại ESP32 đã bật nguồn chưa, hoặc xem IP thực tế của ESP32 trong Serial Monitor Arduino và cập nhật vào src/config.py\n")
-                setattr(ext, 'camera_error_printed', True)
-            time.sleep(2)
-            continue
+            # OpenCV kết nối trực tiếp đến luồng MJPEG của ESP32-CAM trên cổng 81
+            stream_url = f"http://{Config.IP_ESP32_CAM}:81/stream"
+            cap = cv2.VideoCapture(stream_url)
             
-        # Nghỉ cực ngắn để vắt kiệt tối đa số khung hình ESP32 có thể gửi (Tối đa ~50 FPS)
-        time.sleep(0.02)
+            if not cap.isOpened():
+                if not getattr(ext, 'camera_error_printed', False):
+                    print(f"\n[LỖI CAMERA] Không thể mở luồng Video từ: {stream_url}")
+                    setattr(ext, 'camera_error_printed', True)
+                time.sleep(2)
+                continue
+
+            setattr(ext, 'camera_error_printed', False)
+            
+            # Đọc khung hình liên tục mượt mà
+            while ext.camera_is_running:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                
+                # frame là mảng BGR của OpenCV, lưu lại để AI xử lý luôn (không cần decode lại)
+                ext.global_latest_bgr = frame
+                
+                # Mã hóa ra JPEG để phát qua Web Proxy cho giao diện
+                ret_jpg, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                if ret_jpg:
+                    ext.global_latest_frame = buffer.tobytes()
+                    
+        except Exception as e:
+            print(f"[LỖI CAMERA] {e}")
+            time.sleep(2)
+        finally:
+            if 'cap' in locals() and cap is not None:
+                cap.release()
 
 
 def ai_process_worker():
-    last_recognized = {}
     last_processed_frame = None
 
     while True:
-        if not ext.camera_is_running or not ext.global_latest_frame:
+        if not ext.camera_is_running or not hasattr(ext, 'global_latest_bgr'):
             time.sleep(0.5)
             continue
 
-        frame_data = ext.global_latest_frame
-        # Tránh xử lý lại cùng một khung hình
-        if frame_data == last_processed_frame:
+        frame = getattr(ext, 'global_latest_bgr')
+        # Tránh xử lý lại cùng một khung hình (dựa vào reference)
+        if frame is last_processed_frame:
             time.sleep(0.1)
             continue
 
-        last_processed_frame = frame_data
+        last_processed_frame = frame
 
         try:
-            img_arr = np.frombuffer(frame_data, np.uint8)
-            frame = cv2.imdecode(img_arr, cv2.IMREAD_COLOR)
             if frame is None:
                 continue
             
@@ -103,7 +123,7 @@ def ai_process_worker():
                         ma_sv = matched_user['masv']
                         ho_ten = matched_user['hoten']
 
-                        if ma_sv not in last_recognized or (time.time() - last_recognized[ma_sv] > 30):
+                        if ma_sv not in ext.last_recognized_time or (time.time() - ext.last_recognized_time[ma_sv] > 30):
                             print(f"[AI] 👉 NHẬN DIỆN: {ho_ten}")
 
                             try:
@@ -115,7 +135,7 @@ def ai_process_worker():
                                 if row and row[0] == 0:
                                     cursor.execute("""
                                         INSERT INTO DiemDanh (MaBuoiHoc, MaSV, ThoiGianQuet, TrangThai, GhiChu)
-                                        VALUES (?, ?, GETDATE(), N'Đúng giờ', N'AI')
+                                        VALUES (?, ?, GETDATE(), N'Đúng giờ', N'face')
                                     """, (current_buoi_id, ma_sv))
                                     conn.commit()
                                 conn.close()
@@ -126,13 +146,15 @@ def ai_process_worker():
                                 "masv": ma_sv,
                                 "hoten": ho_ten,
                                 "time": time.strftime('%H:%M:%S'),
-                                "status": "success"
+                                "status": "success",
+                                "method": "face"
                             }
 
-                            requests.get(f"http://{Config.IP_ESP32}/open", timeout=2)
-                            last_recognized[ma_sv] = time.time()
-        except Exception:
-            pass
+                            # Gọi hàm mở cửa không đồng bộ (không chờ)
+                            threading.Thread(target=trigger_door_open, args=("face", ma_sv)).start()
+                            ext.last_recognized_time[ma_sv] = time.time()
+        except Exception as frame_e:
+            print(f"[AI FRAME LỖI]: {frame_e}")
             
         time.sleep(0.01)
 

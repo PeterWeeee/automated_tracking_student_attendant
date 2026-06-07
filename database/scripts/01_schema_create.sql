@@ -29,7 +29,8 @@ CREATE TABLE NguoiDung (
     MatKhau     VARCHAR(255) NOT NULL,         
     HoTen       NVARCHAR(255) NOT NULL,        
     VaiTro      VARCHAR(20)  NOT NULL CHECK (VaiTro IN ('SinhVien', 'GiangVien')),
-    KhuonMatData NVARCHAR(MAX) NULL            
+    KhuonMatData NVARCHAR(MAX) NULL,
+    MaTheRFID   VARCHAR(50)  NULL
 );
 GO
 

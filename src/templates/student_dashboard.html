@@ -37,6 +37,9 @@
             <div class="profile-info">
                 <p class="name">{{ hoten }}</p>
                 <p>SV - {{ masv }}</p>
+                {% if rfid %}
+                <p style="color: var(--ute-gold); font-size: 0.75rem; font-weight: bold; margin-top: 2px;"><i class="fa-solid fa-id-badge"></i> Thẻ: {{ rfid }}</p>
+                {% endif %}
             </div>
         </div>
         <div class="menu-title">Trang cá nhân</div>
@@ -49,6 +52,13 @@
                     <i class="fa-solid fa-camera-retro text-light"></i> Cập nhật khuôn mặt AI
                 </a>
             </li>
+            <li class="nav-item mt-3 px-3">
+                <p style="color: #c2c7d0; font-size: 0.8rem; margin-bottom: 5px;"><i class="fa-solid fa-id-card"></i> Mã thẻ RFID (nếu có)</p>
+                <div class="input-group input-group-sm">
+                    <input type="text" id="rfidInput" class="form-control" value="{{ rfid }}" placeholder="VD: F3 A2 91 8C" style="border-radius: 0;">
+                    <button class="btn btn-warning fw-bold" onclick="updateRFID()" style="border-radius: 0;">LƯU</button>
+                </div>
+            </li>
 
             <script>
             function submitFaceForm() {
@@ -57,6 +67,16 @@
                 fetch('/upload_face', { method: 'POST', body: formData })
                 .then(response => response.text())
                 .then(data => { alert(data); })
+            }
+            
+            function updateRFID() {
+                let rfid = document.getElementById('rfidInput').value;
+                if (!rfid) return alert('Vui lòng nhập mã thẻ!');
+                let formData = new FormData();
+                formData.append('rfid_code', rfid);
+                fetch('/update_rfid', { method: 'POST', body: formData })
+                .then(response => response.text())
+                .then(data => { alert(data); document.getElementById('rfidInput').value = ''; })
             }
             </script>
         </ul>

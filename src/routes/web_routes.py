@@ -41,8 +41,16 @@ def login():
 def student():
     if not session.get('user_id'):
         return redirect(url_for('web.login'))
+        
+    conn = pyodbc.connect(Config.CONN_STR)
+    cursor = conn.cursor()
+    cursor.execute("SELECT MaTheRFID FROM NguoiDung WHERE MaNguoiDung = ?", (session.get('user_id'),))
+    user = cursor.fetchone()
+    rfid = user.MaTheRFID if user and user.MaTheRFID else ""
+    conn.close()
+    
     return render_template('student_dashboard.html', hoten=session.get('ho_ten'),
-                           masv=session.get('user_id'))
+                           masv=session.get('user_id'), rfid=rfid)
 
 
 @web_bp.route('/teacher')
@@ -67,6 +75,27 @@ def upload_face():
         load_ai_data_from_db()
         return "Cập nhật khuôn mặt AI thành công!", 200
     return "Không nhận diện được khuôn mặt!", 400
+
+
+@web_bp.route('/update_rfid', methods=['POST'])
+def update_rfid():
+    if not session.get('user_id'):
+        return "Vui lòng đăng nhập!", 401
+    
+    rfid_code = request.form.get('rfid_code')
+    if rfid_code:
+        # Xóa khoảng trắng để mã thẻ chuẩn (ví dụ " F3 A2 " -> "F3A2")
+        rfid_code = rfid_code.replace(" ", "").upper()
+        try:
+            conn = pyodbc.connect(Config.CONN_STR)
+            cursor = conn.cursor()
+            cursor.execute("UPDATE NguoiDung SET MaTheRFID = ? WHERE MaNguoiDung = ?", (rfid_code, session['user_id']))
+            conn.commit()
+            conn.close()
+            return "Cập nhật mã thẻ RFID thành công!", 200
+        except Exception as e:
+            return f"Lỗi cập nhật mã thẻ: {e}", 500
+    return "Mã thẻ không hợp lệ!", 400
 
 
 @web_bp.route('/door')

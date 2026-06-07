@@ -1,6 +1,6 @@
 # 🎓 Hệ thống Điểm danh Sinh viên Tự động (IoT + AI)
 
-Hệ thống nhận diện khuôn mặt kết hợp ESP32 để điểm danh sinh viên tự động trong môi trường lớp học. Giảng viên có thể theo dõi danh sách điểm danh trực tiếp qua giao diện web, trong khi sinh viên có thể xem lịch sử điểm danh của mình.
+Hệ thống nhận diện khuôn mặt kết hợp thẻ RFID thông qua ESP32 để điểm danh sinh viên tự động trong môi trường lớp học. Giảng viên có thể theo dõi danh sách điểm danh trực tiếp qua giao diện web, trong khi sinh viên có thể xem lịch sử điểm danh của mình.
 
 ---
 
@@ -13,20 +13,43 @@ automated_tracking_student_attendant/
 │   ├── routes/             # Cấu hình Web và API
 │   ├── services/           # Xử lý Logic (AI Worker)
 │   └── templates/          # Giao diện HTML
-│       ├── login.html
-│       ├── teacher_dashboard.html
-│       ├── student_dashboard.html
-│       └── door_display.html
 ├── data/                   # Dữ liệu mẫu
-│   └── danh_sach.xls       # File danh sách sinh viên xuất từ hệ thống UTE
+│   └── danh_sach.xls       # File danh sách sinh viên
 ├── database/               # Database Scripts
 │   ├── scripts/            # Script tạo bảng và seed data
-│   └── BAK/                # Backup Database (nếu có)
+│   └── backups/            # Backup Database (nếu có)
 ├── hardware/               # Code Arduino/ESP32 cho phần cứng
-│   └── esp32_firmware/
+│   └── esp32_rfid_firmware/
 ├── requirements.txt        # Danh sách thư viện Python
 └── README.md
 ```
+
+---
+
+## 🔌 Yêu cầu Phần cứng & Sơ đồ nối dây
+
+### Linh kiện cần thiết
+1. **NodeMCU-32 (ESP32-S)**: Vi điều khiển chính xử lý thẻ RFID, xuất tín hiệu màn hình, còi bíp, và giao tiếp HTTP với Backend.
+2. **ESP32-CAM**: Stream video liên tục (qua MJPEG port 81) về cho Server Python xử lý AI.
+3. **Màn hình LCD 16x2 I2C**: Hiển thị thông báo trạng thái và mã sinh viên quét thành công.
+4. **Module RFID RC522**: Đọc thẻ từ RFID của sinh viên.
+5. **Còi Buzzer (Thụ động)**: Phát âm thanh thông báo "bíp" khi nhận diện thành công.
+
+### Sơ đồ nối dây (Với ESP32-S / NodeMCU-32)
+| Linh kiện | Chân trên Module | Chân trên ESP32 | Ghi chú |
+|---|---|---|---|
+| **LCD 16x2 I2C** | SDA | GPIO 21 | Cấp nguồn 5V/3.3V tùy theo module |
+| | SCL | GPIO 22 | |
+| **Buzzer** | Dương (+) | GPIO 12 | Tín hiệu PWM/Tone |
+| | Âm (-) | GND | |
+| **RFID RC522** | SCK | GPIO 18 | Giao tiếp SPI (Hardware) |
+| | MISO | GPIO 19 | |
+| | MOSI | GPIO 23 | |
+| | SS / SDA | GPIO 5 | |
+| | RST | GPIO 4 | |
+| | 3.3V | 3.3V | **Tuyệt đối không cấp nguồn 5V cho RC522** |
+
+*(ESP32-CAM hoạt động độc lập, chỉ cần cấp nguồn 5V, nạp code stream MJPEG và kết nối chung mạng Wi-Fi với ESP32-S và máy chủ AI).*
 
 ---
 
@@ -36,114 +59,83 @@ automated_tracking_student_attendant/
 |---|---|
 | Python | 3.8+ |
 | SQL Server | 2017+ |
-| Visual C++ Build Tools | 2019+ (cần cho `dlib` / `face_recognition`) |
+| Visual C++ Build Tools | 2019+ (cần để build thư viện `dlib` / `face_recognition`) |
 
-> **Lưu ý:** Thư viện `face_recognition` yêu cầu `dlib`, cần có **Microsoft C++ Build Tools** đã cài đặt trước. Tải tại: https://visualstudio.microsoft.com/visual-cpp-build-tools/
+> **Lưu ý:** Thư viện `face_recognition` yêu cầu cài đặt phần mềm **Microsoft C++ Build Tools** trước khi cài đặt. Tải tại: https://visualstudio.microsoft.com/visual-cpp-build-tools/
 
 ---
 
-## 🚀 Hướng dẫn cài đặt
+## 🚀 Hướng dẫn cài đặt và sử dụng
 
-### 1. Clone repository
+### 1. Cài đặt mã nguồn
 
 ```bash
 git clone <URL_REPO>
 cd automated_tracking_student_attendant
 ```
 
-### 2. Tạo môi trường ảo Python
-
+Tạo môi trường ảo và cài đặt thư viện:
 ```bash
 python -m venv .venv
-# Windows
+
+# Trên Windows
 .venv\Scripts\activate
-# Linux/macOS
+# Trên Linux/macOS
 source .venv/bin/activate
-```
 
-### 3. Cài đặt thư viện
-
-```bash
+# Cài đặt thư viện
 pip install -r requirements.txt
 ```
 
----
+### 2. Thiết lập Database
+1. Mở **SQL Server Management Studio (SSMS)**.
+2. Mở file `database/scripts/01_schema_create.sql` và chạy (Execute) để khởi tạo Database `IOT_QUANLYSINHVIEN` và các bảng.
+3. Mở file `database/scripts/02_seed_data.sql` và chạy để đưa dữ liệu mẫu (hoặc tài khoản giáo viên) vào hệ thống.
+4. Kiểm tra chuỗi kết nối `CONN_STR` trong `src/config.py` để đảm bảo kết nối đúng SQL Server cục bộ.
 
-## 🗄️ Cấu hình Database & ESP32
+### 3. Nạp code và cấu hình Hardware
+1. Mở **Arduino IDE**.
+2. Nạp code cho ESP32-CAM và ghi nhớ IP của camera.
+3. Nạp code `hardware/esp32_rfid_firmware/esp32_rfid_firmware.ino` vào mạch ESP32-S. 
+   - Thay đổi thông tin wifi `ssid` và `password` trong code.
+   - Thay đổi IP `backend_url` trỏ về IP của máy chủ chạy Python.
+4. Sau khi nạp, ghi chú IP của ESP32-CAM và ESP32-S. Vào file `src/config.py`, cập nhật:
+   ```python
+   IP_ESP32_CAM = "192.168.x.x"
+   IP_ESP32_S = "192.168.x.y"
+   ```
 
-### Bước 1: Khôi phục Database SQL Server
+### 4. Khởi chạy hệ thống Web Server và AI
 
-Restore file backup từ thư mục `BAK/` vào SQL Server (tên database: `IOT_QUANLYSINHVIEN`):
-
-```sql
--- Mở SQL Server Management Studio (SSMS) và chạy:
-RESTORE DATABASE IOT_QUANLYSINHVIEN
-FROM DISK = 'đường_dẫn_đến_file_trong_BAK\'
-```
-
-Hoặc dùng giao diện SSMS: Chuột phải vào **Databases** → **Restore Database** → chọn file `.bak` trong thư mục `BAK/`.
-
-### Bước 2: Chạy script SQL hỗ trợ (nếu có)
-
-```bash
-# Mở các file .sql trong thư mục scripts/ và chạy trong SSMS
-```
-
-### Bước 3: Nạp code vào ESP32
-
-1. Mở **Arduino IDE** (hoặc **PlatformIO**).
-2. Mở project trong thư mục `hardware/esp32_firmware/`.
-3. Cập nhật thông tin Wi-Fi và địa chỉ IP trong code Arduino.
-4. Nạp (Upload) vào board **ESP32**.
-5. Sau khi ESP32 khởi động, màn hình LCD sẽ hiển thị địa chỉ IP — ghi lại IP này.
-6. Cập nhật biến `IP_ESP32` trong `src/config.py` với IP vừa ghi.
-
-### Bước 4: Khởi tạo dữ liệu mẫu (Thay thế cho import_excel.py cũ)
-
-Chạy các script tạo bảng và chèn dữ liệu mẫu trong thư mục `database/scripts/`:
-
-1. Mở SSMS.
-2. Chạy `01_schema_create.sql` để tạo cấu trúc bảng.
-3. Chạy `02_seed_data.sql` để đưa danh sách sinh viên và dữ liệu mẫu vào DB.
-
-> Ghi chú: Việc import file Excel hiện tại được hỗ trợ thao tác trực tiếp trên giao diện của Giảng Viên.
-
----
-
-## ▶️ Khởi chạy hệ thống
-
-Chạy lệnh sau từ **thư mục gốc** của dự án:
-
+Mở terminal ở thư mục gốc của project và chạy lệnh:
 ```bash
 python -X utf8 -m src.app
 ```
+*Ghi chú: Lệnh `-X utf8` giúp hiển thị Tiếng Việt trong console không bị lỗi font.*
 
-Sau khi server khởi động, truy cập giao diện web tại:
-
+Truy cập trang quản trị web:
 ```
 http://localhost:5000
 ```
-
-### Tài khoản mặc định
-
-| Vai trò | Mã đăng nhập | Mật khẩu |
-|---|---|---|
-| Sinh viên | Mã SV (từ danh sách) | `123456` |
-| Giảng viên | *(Tạo thủ công trong DB)* | *(Tùy chỉnh)* |
+- **Tài khoản Giảng Viên**: Sử dụng tài khoản đã thêm trong `02_seed_data.sql` (VD: GV01 / 123456).
+- **Tài khoản Sinh Viên**: Mã SV / 123456 (Sinh viên sẽ tự cập nhật ảnh khuôn mặt AI và mã thẻ RFID sau khi đăng nhập).
 
 ---
 
 ## 📖 Luồng hoạt động
 
-```
-[ESP32 Camera] --[HTTP]--> [Flask Server] --[face_recognition]--> [SQL Server]
-                                  |
-                          [Giao diện Web]
-                      (Giảng viên / Sinh viên)
+```text
+[ESP32-CAM] --(Stream MJPEG)--> [Flask Server (AI Thread)] <--(Giao diện Web Giảng Viên)
+                                        |
+                                 (So sánh Khuôn Mặt)
+                                        v
+                                 [SQL Server DB]
+                                        ^
+                                 (Truy vấn Thẻ)
+                                        |
+[MFRC522 RFID] --(Đọc Thẻ)--> [ESP32-S NodeMCU]
 ```
 
-1. **ESP32** liên tục chụp ảnh và gửi về Flask server qua HTTP.
-2. **Flask AI thread** nhận ảnh, nhận diện khuôn mặt, so sánh với database.
-3. Nếu khớp, ghi điểm danh vào **SQL Server** và gửi lệnh mở cửa về ESP32.
-4. Giảng viên có thể xem và **sửa điểm danh thủ công** qua giao diện web.
-5. Sinh viên đăng nhập để **xem lịch sử điểm danh** của mình theo từng lớp.
+1. **AI Khuôn Mặt**: Giảng viên bấm "Bắt đầu" điểm danh trên web, hệ thống tự động kéo stream từ ESP32-CAM để nhận diện, điểm danh sinh viên tự động.
+2. **Thẻ RFID**: Sinh viên quẹt thẻ vào module RC522. ESP32-S gửi mã thẻ về Backend để xác thực. Backend ghi nhận trạng thái điểm danh và gửi lệnh phản hồi lại cho ESP32-S kêu bíp và hiển thị LCD.
+3. Sinh viên có thể đăng nhập trên Web để tải ảnh khuôn mặt của mình lên và xem lịch sử điểm danh các môn học.

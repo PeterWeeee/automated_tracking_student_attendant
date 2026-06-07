@@ -153,6 +153,20 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════
+     TOAST NOTIFICATIONS (Góc phải dưới)
+═══════════════════════════════════════════════════════ -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1055;">
+    <div id="liveToast" class="toast align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body fw-bold" id="toastMessage">
+                <!-- Nội dung toast -->
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
      MODAL ĐIỂM DANH
 ═══════════════════════════════════════════════════════ -->
 <div class="modal fade" id="attendanceModal" tabindex="-1" aria-hidden="true">
@@ -178,6 +192,10 @@
                                 <i class="fa-solid fa-satellite-dish me-1"></i> Điều Khiển AI
                             </div>
                             <div class="card-body">
+                                <div id="cameraContainer" class="mb-3 text-center border rounded bg-dark d-flex align-items-center justify-content-center flex-column" style="height: 180px; overflow: hidden;">
+                                    <span id="cameraPlaceholder" class="text-white-50"><i class="fa-solid fa-video-slash fa-2x mb-2 d-block"></i>Camera đang tắt</span>
+                                    <img id="cameraStream" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;" alt="Live Camera">
+                                </div>
                                 <div class="d-flex gap-2 mb-3">
                                     <button class="btn btn-success flex-fill fw-bold" id="btnStart"
                                             onclick="toggleCamera('start')">
@@ -290,6 +308,7 @@
                                             <th class="text-start">Họ Tên</th>
                                             <th>Data AI</th>
                                             <th>Giờ Quét</th>
+                                            <th>Phương Thức</th>
                                             <th>Trạng Thái</th>
                                             <th>Thao tác</th>
                                         </tr>
@@ -407,6 +426,8 @@
         cancelAutoScan();
         document.getElementById('camStatus').textContent = 'Đang tắt';
         document.getElementById('camStatus').className  = 'fw-bold text-danger';
+        // Luon lam moi bang 3s khi modal mo (ho tro RFID khong can camera)
+        autoRefreshInterval = setInterval(fetchAttendanceList, 3000);
     }
 
     // ══════════════════════════════════════════════════════
@@ -423,15 +444,26 @@
         .then(r => r.json())
         .then(() => {
             const span = document.getElementById('camStatus');
+            const camStream = document.getElementById('cameraStream');
+            const camPlaceholder = document.getElementById('cameraPlaceholder');
+            
             if (action === 'start') {
                 span.textContent = 'ĐANG QUÉT MẶT...';
                 span.className   = 'fw-bold text-success';
+                camStream.src = '/api/cam_proxy?' + new Date().getTime();
+                camStream.style.display = 'block';
+                camPlaceholder.style.display = 'none';
                 if (autoRefreshInterval) clearInterval(autoRefreshInterval);
                 autoRefreshInterval = setInterval(fetchAttendanceList, 2000);
             } else {
                 span.textContent = 'Đang tắt';
                 span.className   = 'fw-bold text-danger';
-                if (autoRefreshInterval) { clearInterval(autoRefreshInterval); autoRefreshInterval = null; }
+                camStream.src = '';
+                camStream.style.display = 'none';
+                camPlaceholder.style.display = 'block';
+                // Dừng camera: giữ refresh 3s để vẫn bắt sự kiện RFID
+                if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+                autoRefreshInterval = setInterval(fetchAttendanceList, 3000);
             }
         });
     }
@@ -519,6 +551,13 @@
                 const ai = sv.co_mat_ai === 0
                     ? '<span class="text-danger"><i class="fa-solid fa-triangle-exclamation"></i> Chưa UP</span>'
                     : '<span class="text-success"><i class="fa-solid fa-check-circle"></i> Đã UP</span>';
+                    
+                const _pm = (sv.phuongthuc || '').toLowerCase();
+                const phuongthucBadge = (_pm === 'face' || _pm === 'ai')
+                    ? '<span class="badge bg-primary">Khuôn mặt</span>'
+                    : _pm === 'rfid'
+                    ? '<span class="badge bg-info text-dark">Thẻ RFID</span>'
+                    : '<span class="badge bg-secondary">Thủ công</span>';
 
                 html += `<tr>
                     <td>${sv.stt}</td>
@@ -526,6 +565,7 @@
                     <td class="text-start">${sv.hoten}</td>
                     <td>${ai}</td>
                     <td class="text-muted">${sv.gioquet}</td>
+                    <td>${phuongthucBadge}</td>
                     <td><span class="badge ${badge}">${sv.trangthai}</span></td>
                     <td>
                         <button class="btn btn-sm btn-outline-primary"
@@ -538,6 +578,35 @@
             tbody.innerHTML = html;
         });
     }
+
+    // ══════════════════════════════════════════════════════
+    //  TOAST NOTIFICATIONS (Kiểm tra xem ai vừa điểm danh)
+    // ══════════════════════════════════════════════════════
+    let lastScanTimeStr = "";
+    function checkLatestScan() {
+        fetch('/api/latest_scan')
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success' && data.time !== lastScanTimeStr) {
+                lastScanTimeStr = data.time;
+                
+                // Hiển thị Toast
+                const toastEl = document.getElementById('liveToast');
+                const toastMsg = document.getElementById('toastMessage');
+                const methodStr = data.method === 'rfid' ? "THẺ RFID" : "KHUÔN MẶT";
+                
+                toastMsg.innerHTML = `<i class="fa-solid fa-bell me-2"></i> ${data.hoten} (${data.masv}) vừa quét bằng ${methodStr} !`;
+                const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+                toast.show();
+                
+                // Tự động làm mới bảng điểm danh
+                fetchAttendanceList();
+            }
+        });
+    }
+
+    // Cứ mỗi 1.5 giây hỏi server 1 lần xem có ai mới quét không
+    setInterval(checkLatestScan, 1500);
 
     // ══════════════════════════════════════════════════════
     //  STATUS — Manual change (cycle: Đúng giờ → Trễ → Vắng)
@@ -589,7 +658,14 @@
     // ──────────────────────────────────────────────────────
     //  Init
     // ──────────────────────────────────────────────────────
-    document.addEventListener('DOMContentLoaded', loadSchedule);
+    document.addEventListener('DOMContentLoaded', () => {
+        loadSchedule();
+        // Dọn refresh interval khi đóng modal để không polling ngầm
+        document.getElementById('attendanceModal').addEventListener('hidden.bs.modal', () => {
+            if (autoRefreshInterval) { clearInterval(autoRefreshInterval); autoRefreshInterval = null; }
+            cancelAutoScan();
+        });
+    });
 </script>
 </body>
 </html>

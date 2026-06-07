@@ -27,7 +27,7 @@
     <div class="header">PHÒNG A113 - MÔN: VẠN VẬT KẾT NỐI</div>
     <div class="main-container">
         <div class="cam-section">
-            <img id="camStream" src="/static/placeholder.jpg" alt="Đang chờ Camera...">
+            <img id="camStream" src="/api/cam_proxy" alt="Đang chờ Camera...">
         </div>
 
         <div class="info-section">
@@ -43,10 +43,7 @@
     </div>
 
     <script>
-        // 1. Liên tục lấy ảnh từ Proxy Python để tạo thành Video (khoảng 30 khung hình/giây)
-        setInterval(() => {
-            document.getElementById('camStream').src = "/api/cam_proxy?" + new Date().getTime();
-        }, 33);
+        // 1. Luồng Video MJPEG từ Python giờ đã được trình duyệt tự động lo (Không cần request JS nữa)
 
         // 2. Liên tục hỏi Backend xem có ai vừa quét mặt thành công không (mỗi 1 giây)
         setInterval(() => {
@@ -61,8 +58,12 @@
                 let icon = document.getElementById('waitIcon');
 
                 if(data.status === 'success') {
-                    nameEl.textContent = data.hoten;
-                    idEl.textContent = "MSSV: " + data.masv;
+                    if (data.method === 'rfid') {
+                        nameEl.textContent = "QUÉT THẺ THÀNH CÔNG";
+                    } else {
+                        nameEl.textContent = "QUÉT MẶT THÀNH CÔNG";
+                    }
+                    idEl.textContent = "MSSV: " + data.masv + " - " + data.hoten;
                     timeEl.textContent = "Lúc: " + data.time;
                     badgeEl.className = "badge bg-success status-badge";
                     badgeEl.innerHTML = '<i class="fa-solid fa-check-circle"></i> VÀO LỚP HỢP LỆ';
