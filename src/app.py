@@ -11,6 +11,7 @@ from src.routes.web_routes import web_bp
 def create_app():
     app = Flask(__name__, template_folder=Config.TEMPLATE_DIR, static_folder=Config.STATIC_DIR)
     app.secret_key = Config.SECRET_KEY
+    app.json.ensure_ascii = False
 
     # Register blueprints
     app.register_blueprint(api_bp)

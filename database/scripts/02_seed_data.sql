@@ -5,31 +5,48 @@ GO
 -- DỮ LIỆU MẦM (SEED DATA)
 -- =========================================================
 
--- 1. GIẢNG VIÊN
-INSERT INTO NguoiDung (MaNguoiDung, MatKhau, HoTen, VaiTro) VALUES
-('GV01', '123456', N'Đinh Công Đoan',   'GiangVien'),
-('GV02', '123456', N'Võ Lê Phúc Hậu',  'GiangVien'),
-('GV03', '123456', N'Huỳnh Hạnh Dung', 'GiangVien'),
-('GV04', '123456', N'Bùi Mạnh Quân',   'GiangVien');
+-- 1. NGƯỜI DÙNG (Giảng viên)
+INSERT INTO NguoiDung (MaNguoiDung, MatKhau, TenDangNhap, VaiTro) VALUES
+('GV01', '123456', 'GV01', 'GiangVien'),
+('GV02', '123456', 'GV02', 'GiangVien'),
+('GV03', '123456', 'GV03', 'GiangVien'),
+('GV04', '123456', 'GV04', 'GiangVien');
 GO
 
--- 2. LỚP HỌC PHẦN
-INSERT INTO LopHocPhan (MaLop, TenMonHoc, MaMon, SoTC, NamHoc, HocKy, MaGV) VALUES
-('241102B',   N'Vạn Vật Kết Nối',         'INOT231780', 3, '2024-2025', 1, 'GV01'),
-('241104B',   N'An toàn thông tin',       'INSE330380', 3, '2024-2025', 1, 'GV02'),
-('241101C',   N'Tiếng Anh Chuyên ngành',  'ENGL330001', 2, '2024-2025', 1, 'GV03'),
-('24110CTNA', N'Trí tuệ nhân tạo',        'ARIN330585', 3, '2024-2025', 2, 'GV04');
+-- 2. GIẢNG VIÊN (Thông tin chi tiết)
+INSERT INTO GiangVien (MaGiangVien, HoTen, Khoa, ChuyenNganh, Email, SDT, HocVi) VALUES
+('GV01', N'Đinh Công Đoan',   N'CNTT', NULL, 'GV01@hcmute.edu.vn', '098*******', N'Thạc Sĩ'),
+('GV02', N'Võ Lê Phúc Hậu',  N'CNTT', NULL, 'GV02@hcmute.edu.vn', '098*******', N'Thạc Sĩ'),
+('GV03', N'Huỳnh Hạnh Dung', N'CNTT', NULL, 'GV03@hcmute.edu.vn', '098*******', N'Thạc Sĩ'),
+('GV04', N'Bùi Mạnh Quân',   N'CNTT', NULL, 'GV04@hcmute.edu.vn', '098*******', N'Thạc Sĩ');
 GO
 
--- 3. BUỔI HỌC
+-- 3. MÔN HỌC
+INSERT INTO MonHoc (MaMon, TenMon, SoTC) VALUES
+('INOT231780', N'Vạn Vật Kết Nối', 3),
+('INSE330380', N'An toàn thông tin', 3),
+('ENGL330001', N'Tiếng Anh Chuyên ngành', 3),
+('ARIN330585', N'Trí tuệ nhân tạo', 3);
+GO
+
+-- 4. PHÒNG HỌC
+INSERT INTO PhongHoc (MaPhong, TenPhong) VALUES
+('A113', N'Phòng A113'),
+('A2-401', N'Phòng A2-401'),
+('A123', N'Phòng A123'),
+('A2-502', N'Phòng A2-502'),
+('E4-102', N'Phòng E4-102');
+GO
+
+-- 5. BUỔI HỌC
 SET IDENTITY_INSERT BuoiHoc ON;
-INSERT INTO BuoiHoc (MaBuoiHoc, MaLop, NgayHoc, ThuTrongTuan, Ca, TietBatDau, TietKetThuc, Phong) VALUES
-(1, '241102B',   CAST(GETDATE() AS DATE), 2, 'Sang',  1, 4,  'A113'),
-(2, '241104B',   CAST(GETDATE() AS DATE), 2, 'Chieu', 7, 10, 'A2-401'),
-(3, '241101C',   CAST(GETDATE() AS DATE), 3, 'Sang',  1, 5,  'A123'),
-(4, '24110CTNA', CAST(GETDATE() AS DATE), 3, 'Chieu', 7, 10, 'A2-502'),
-(5, '241102B',   CAST(GETDATE() AS DATE), 4, 'Sang',  1, 4,  'A113'),
-(6, '241104B',   CAST(GETDATE() AS DATE), 4, 'Chieu', 7, 10, 'E4-102'),
-(7, '24110CTNA', CAST(GETDATE() AS DATE), 5, 'Chieu', 7, 10, 'A2-502');
+INSERT INTO BuoiHoc (MaBuoiHoc, MaPhong, MaMon, MaGiangVien, NgayHoc, ThuTrongTuan, Ca, TietBatDau, TietKetThuc) VALUES
+(1, 'A113',   'INOT231780', 'GV01', CAST(GETDATE() AS DATE), 2, 'Sang',  1, 4),
+(2, 'A2-401', 'INSE330380', 'GV02', CAST(GETDATE() AS DATE), 2, 'Chieu', 7, 10),
+(3, 'A123',   'ENGL330001', 'GV03', CAST(GETDATE() AS DATE), 3, 'Sang',  1, 5),
+(4, 'A2-502', 'ARIN330585', 'GV04', CAST(GETDATE() AS DATE), 3, 'Chieu', 7, 10),
+(5, 'A113',   'INOT231780', 'GV01', CAST(GETDATE() AS DATE), 4, 'Sang',  1, 4),
+(6, 'E4-102', 'INSE330380', 'GV02', CAST(GETDATE() AS DATE), 4, 'Chieu', 7, 10),
+(7, 'A2-502', 'ARIN330585', 'GV04', CAST(GETDATE() AS DATE), 5, 'Chieu', 7, 10);
 SET IDENTITY_INSERT BuoiHoc OFF;
 GO

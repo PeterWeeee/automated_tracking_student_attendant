@@ -21,7 +21,7 @@ def load_ai_data_from_db():
     try:
         conn = pyodbc.connect(Config.CONN_STR)
         cursor = conn.cursor()
-        cursor.execute("SELECT MaNguoiDung, HoTen, KhuonMatData FROM NguoiDung WHERE KhuonMatData IS NOT NULL")
+        cursor.execute("SELECT MaSinhVien AS MaNguoiDung, HoTen, KhuonMatData FROM SinhVien WHERE KhuonMatData IS NOT NULL")
         temp_mem = []
         for row in cursor.fetchall():
             temp_mem.append({

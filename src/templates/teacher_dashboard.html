@@ -202,9 +202,9 @@
         <div class="bg-white shadow-sm p-4 border rounded">
             <div class="row mb-4">
                 <div class="col-md-3">
-                    <label class="form-label">Lớp</label>
+                    <label class="form-label">Môn</label>
                     <select id="statClassSelect" class="form-select" onchange="updateSessionSelect(); loadStatistics();">
-                        <option value="all">Tất cả các lớp</option>
+                        <option value="all">Tất cả các môn</option>
                     </select>
                 </div>
                 <div class="col-md-3">
@@ -337,7 +337,7 @@
                             </div>
                             <div class="card-body">
                                 <form id="uploadExcelForm" onsubmit="handleUploadExcel(event)">
-                                    <input type="hidden" id="uploadMaLop" name="malop">
+                                    <input type="hidden" id="uploadMaLop" name="mamon">
                                     <input class="form-control form-control-sm mb-2" type="file" id="excelFile" accept=".xls,.xlsx,.csv" required>
                                     <button type="submit" class="btn btn-success btn-sm w-100 fw-bold" id="btnUploadExcel">
                                         <i class="fa-solid fa-cloud-arrow-up"></i> Tải lên
@@ -352,22 +352,17 @@
                     <div class="col-md-9">
                         <!-- Stats row -->
                         <div class="row g-2 mb-3">
-                            <div class="col-3">
-                                <div class="stat-box bg-class">
-                                    LỚP<br><span id="statClass" class="fs-5">--</span>
-                                </div>
-                            </div>
-                            <div class="col-3">
+                            <div class="col-4">
                                 <div class="stat-box bg-total">
                                     SĨ SỐ<br><span id="statTotal" class="fs-5">0</span>
                                 </div>
                             </div>
-                            <div class="col-3">
+                            <div class="col-4">
                                 <div class="stat-box bg-present">
                                     CÓ MẶT<br><span id="statPresent" class="fs-5">0</span>
                                 </div>
                             </div>
-                            <div class="col-3">
+                            <div class="col-4">
                                 <div class="stat-box bg-absent">
                                     VẮNG<br><span id="statAbsent" class="fs-5">0</span>
                                 </div>
@@ -383,7 +378,8 @@
                                             <th>STT</th>
                                             <th>Mã SV</th>
                                             <th class="text-start">Họ Tên</th>
-                                            <th>Data AI</th>
+                                            <th>Data mặt</th>
+                                            <th>Data thẻ</th>
                                             <th>Giờ Quét</th>
                                             <th>Phương Thức</th>
                                             <th>Trạng Thái</th>
@@ -392,7 +388,7 @@
                                     </thead>
                                     <tbody id="attendanceTableBody">
                                         <tr>
-                                            <td colspan="7" class="text-muted py-5">
+                                            <td colspan="9" class="text-muted py-5">
                                                 <i class="fa-solid fa-spinner fa-spin me-1"></i>
                                                 Đang tải danh sách...
                                             </td>
@@ -451,13 +447,13 @@
             const days = [...new Set(data.data.map(b => b.thu))].sort((a,b) => a-b);
             
             // Populate statClassSelect with unique classes
-            const uniqueClasses = [...new Set(data.data.map(b => b.malop))];
+            const uniqueClasses = [...new Set(data.data.map(b => b.mamon))];
             const selectEl = document.getElementById('statClassSelect');
             if (selectEl && selectEl.options.length <= 1) { // only "all" option exists initially
-                uniqueClasses.forEach(malop => {
+                uniqueClasses.forEach(mamon => {
                     const opt = document.createElement('option');
-                    opt.value = malop;
-                    opt.textContent = `Lớp ${malop}`;
+                    opt.value = mamon;
+                    opt.textContent = `Môn ${mamon}`;
                     selectEl.appendChild(opt);
                 });
             }
@@ -475,9 +471,9 @@
                         const mamon = b.mamon ? ` (${b.mamon})` : '';
                         html += `
                             <div class="cell-active"
-                                 onclick="openModal(${b.mabuoi}, '${mon}${mamon}', '${b.malop}')">
+                                 onclick="openModal(${b.mabuoi}, '${mon}${mamon}', '${b.mamon}')">
                                 <span class="subject-name">${b.tenmon}</span>
-                                <small class="d-block text-muted mt-1">Lớp: ${b.malop} | ${tiet}</small>
+                                <small class="d-block text-muted mt-1">Môn: ${b.mamon} | ${tiet}</small>
                                 <small class="d-block text-muted">${phong}</small>
                                 <span class="badge bg-success mt-2">
                                     <i class="fa-solid fa-clipboard-check"></i> Quản lý điểm danh
@@ -501,12 +497,11 @@
     // ══════════════════════════════════════════════════════
     //  MODAL — Open
     // ══════════════════════════════════════════════════════
-    function openModal(buoiId, tenMon, tenLop) {
+    function openModal(buoiId, tenMon, maMon) {
         document.getElementById('currentBuoiId').value = buoiId;
         document.getElementById('modalTitle').innerHTML =
             `<i class="fa-solid fa-clipboard-check me-2"></i>QUẢN LÝ ĐIỂM DANH: ${tenMon}`;
-        document.getElementById('statClass').textContent = tenLop;
-        document.getElementById('uploadMaLop').value = tenLop;
+        document.getElementById('uploadMaLop').value = maMon;
 
         fetch('/api/camera_status')
         .then(r => r.json())
@@ -700,6 +695,10 @@
                     ? '<span class="text-danger"><i class="fa-solid fa-triangle-exclamation"></i> Chưa UP</span>'
                     : '<span class="text-success"><i class="fa-solid fa-check-circle"></i> Đã UP</span>';
                     
+                const the = sv.co_the_rfid === 0
+                    ? '<span class="text-danger"><i class="fa-solid fa-triangle-exclamation"></i> Chưa UP</span>'
+                    : '<span class="text-success"><i class="fa-solid fa-check-circle"></i> Đã UP</span>';
+                    
                 const _pm = (sv.phuongthuc || '').toLowerCase();
                 const phuongthucBadge = (_pm === 'face' || _pm === 'ai')
                     ? '<span class="badge bg-primary">Khuôn mặt</span>'
@@ -712,6 +711,7 @@
                     <td class="fw-bold">${sv.masv}</td>
                     <td class="text-start">${sv.hoten}</td>
                     <td>${ai}</td>
+                    <td>${the}</td>
                     <td class="text-muted">${sv.gioquet}</td>
                     <td>${phuongthucBadge}</td>
                     <td><span class="badge ${badge}">${sv.trangthai}</span></td>
@@ -784,7 +784,7 @@
 
         const fd = new FormData();
         fd.append('file', fileInput.files[0]);
-        fd.append('malop', malop);
+        fd.append('mamon', malop);
 
         const btn = document.getElementById('btnUploadExcel');
         btn.disabled = true;

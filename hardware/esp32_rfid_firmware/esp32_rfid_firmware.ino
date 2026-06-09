@@ -186,13 +186,39 @@ void loop() {
 
     // [6] Gửi UID lên Backend qua HTTP POST
     if (WiFi.status() == WL_CONNECTED) {
+        WiFiClient client;
         HTTPClient http;
-        http.begin(backend_url);
+        http.begin(client, backend_url);
         http.addHeader("Content-Type", "application/json");
 
         String postData = "{\"uid\":\"" + uid + "\",\"room_id\":\"" + ROOM_ID + "\"}";
         int httpCode = http.POST(postData);
-        Serial.printf("[RFID] HTTP %d: %s\n", httpCode, http.getString().c_str());
+        String payload = http.getString();
+        Serial.printf("[RFID] HTTP %d: %s\n", httpCode, payload.c_str());
+        
+        if (httpCode != 200) {
+            lcd.clear();
+            lcd.setCursor(0, 0);
+            lcd.print("Quet the: LOI!");
+            lcd.setCursor(0, 1);
+            if (httpCode == 404) lcd.print("The chua dang ky");
+            else lcd.print("Loi he thong");
+            
+            tone(BUZZER_PIN, 1000, 1000); // Bíp dài 1s báo lỗi
+            displayActive = true;
+            displayEndMs = millis() + 3000;
+        } else if (payload.indexOf("\"ignored\"") > 0) {
+            lcd.clear();
+            lcd.setCursor(0, 0);
+            lcd.print("Quet the: LOI!");
+            lcd.setCursor(0, 1);
+            lcd.print("Da quet/Chua mo");
+            
+            tone(BUZZER_PIN, 1500, 200); // Bíp nhẹ báo ignore
+            displayActive = true;
+            displayEndMs = millis() + 3000;
+        }
+
         http.end();
     } else {
         Serial.println("[RFID] WiFi mat ket noi!");

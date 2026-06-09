@@ -12,8 +12,8 @@ class Config:
     )
     
     # Hardware config
-    IP_ESP32_CAM = "192.168.137.102"
-    IP_ESP32_S = "192.168.137.213" # IP của NodeMCU-32 (thay đổi sau khi nạp code)
+    IP_ESP32_CAM = "192.168.137.185"
+    IP_ESP32_S = "192.168.137.215" # IP của NodeMCU-32 (thay đổi sau khi nạp code)
     
     # Paths
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))

@@ -37,9 +37,19 @@
             <div class="profile-info">
                 <p class="name">{{ hoten }}</p>
                 <p>SV - {{ masv }}</p>
-                {% if rfid %}
-                <p style="color: var(--ute-gold); font-size: 0.75rem; font-weight: bold; margin-top: 2px;"><i class="fa-solid fa-id-badge"></i> Thẻ: {{ rfid }}</p>
-                {% endif %}
+                <div style="margin-top: 8px; font-size: 0.8rem; text-align: left; padding-left: 10px;">
+                    {% if has_face %}
+                    <div style="color: #4CAF50; margin-bottom: 3px;"><i class="fa-solid fa-face-smile"></i> Đã có dữ liệu mặt</div>
+                    {% else %}
+                    <div style="color: #FFC107; margin-bottom: 3px;"><i class="fa-solid fa-face-frown"></i> Chưa có dữ liệu mặt</div>
+                    {% endif %}
+                    
+                    {% if rfid %}
+                    <div style="color: #4CAF50;"><i class="fa-solid fa-id-card"></i> Thẻ: {{ rfid }}</div>
+                    {% else %}
+                    <div style="color: #FFC107;"><i class="fa-solid fa-id-card"></i> Chưa có thẻ</div>
+                    {% endif %}
+                </div>
             </div>
         </div>
         <div class="menu-title">Trang cá nhân</div>
@@ -102,8 +112,8 @@
                             <td>
                                 <div class="cell-active">
                                     <span class="subject-name">Môn: Vạn Vật Kết Nối (INOT231780)</span>
-                                    <small class="d-block text-muted">Lớp: 241102B | Tiết: 1->4</small>
-                                    <span class="status-link" onclick="openHistory('241102B', 'Vạn Vật Kết Nối')">
+                                    <small class="d-block text-muted">Phòng: A113 | Tiết: 1->4</small>
+                                    <span class="status-link" onclick="openHistory('INOT231780', 'Vạn Vật Kết Nối')">
                                         <i class="fa-solid fa-eye"></i> Xem lịch sử điểm danh
                                     </span>
                                 </div>
@@ -111,8 +121,8 @@
                             <td>
                                 <div class="cell-active">
                                     <span class="subject-name">Môn: An toàn thông tin (INSE330380)</span>
-                                    <small class="d-block text-muted">Lớp: 241104B | Tiết: 7->10</small>
-                                    <span class="status-link" onclick="openHistory('241104B', 'An toàn thông tin')">
+                                    <small class="d-block text-muted">Phòng: A2-401 | Tiết: 7->10</small>
+                                    <span class="status-link" onclick="openHistory('INSE330380', 'An toàn thông tin')">
                                         <i class="fa-solid fa-eye"></i> Xem lịch sử điểm danh
                                     </span>
                                 </div>
@@ -123,9 +133,9 @@
                             <td>Thứ 3</td>
                             <td>
                                 <div class="cell-active">
-                                    <span class="subject-name">Môn: Tiếng Anh Chuyên ngành (ENCS330537)</span>
-                                    <small class="d-block text-muted">Lớp: 241101C | Tiết: 1->5</small>
-                                    <span class="status-link" onclick="openHistory('241101C', 'Tiếng Anh Chuyên ngành')">
+                                    <span class="subject-name">Môn: Tiếng Anh Chuyên ngành (ENGL330001)</span>
+                                    <small class="d-block text-muted">Phòng: A123 | Tiết: 1->5</small>
+                                    <span class="status-link" onclick="openHistory('ENGL330001', 'Tiếng Anh Chuyên ngành')">
                                         <i class="fa-solid fa-eye"></i> Xem lịch sử điểm danh
                                     </span>
                                 </div>
@@ -133,8 +143,8 @@
                             <td>
                                 <div class="cell-active">
                                     <span class="subject-name">Môn: Trí tuệ nhân tạo (ARIN330585)</span>
-                                    <small class="d-block text-muted">Lớp: 24110CTNA | Tiết: 7->10</small>
-                                    <span class="status-link" onclick="openHistory('24110CTNA', 'Trí tuệ nhân tạo')">
+                                    <small class="d-block text-muted">Phòng: A2-502 | Tiết: 7->10</small>
+                                    <span class="status-link" onclick="openHistory('ARIN330585', 'Trí tuệ nhân tạo')">
                                         <i class="fa-solid fa-eye"></i> Xem lịch sử điểm danh
                                     </span>
                                 </div>
@@ -146,8 +156,8 @@
                             <td>
                                 <div class="cell-active">
                                     <span class="subject-name">Môn: Vạn Vật Kết Nối (INOT231780)</span>
-                                    <small class="d-block text-muted">Lớp: 241102B | Tiết: 1->4</small>
-                                    <span class="status-link" onclick="openHistory('241102B', 'Vạn Vật Kết Nối')">
+                                    <small class="d-block text-muted">Phòng: A113 | Tiết: 1->4</small>
+                                    <span class="status-link" onclick="openHistory('INOT231780', 'Vạn Vật Kết Nối')">
                                         <i class="fa-solid fa-eye"></i> Xem lịch sử điểm danh
                                     </span>
                                 </div>
@@ -155,8 +165,8 @@
                             <td>
                                 <div class="cell-active">
                                     <span class="subject-name">Môn: An toàn thông tin (INSE330380)</span>
-                                    <small class="d-block text-muted">Lớp: 241104B | Tiết: 7->10</small>
-                                    <span class="status-link" onclick="openHistory('241104B', 'An toàn thông tin')">
+                                    <small class="d-block text-muted">Phòng: E4-102 | Tiết: 7->10</small>
+                                    <span class="status-link" onclick="openHistory('INSE330380', 'An toàn thông tin')">
                                         <i class="fa-solid fa-eye"></i> Xem lịch sử điểm danh
                                     </span>
                                 </div>
@@ -169,8 +179,8 @@
                             <td>
                                 <div class="cell-active">
                                     <span class="subject-name">Môn: Trí tuệ nhân tạo (ARIN330585)</span>
-                                    <small class="d-block text-muted">Lớp: 24110CTNA | Tiết: 7->10</small>
-                                    <span class="status-link" onclick="openHistory('24110CTNA', 'Trí tuệ nhân tạo')">
+                                    <small class="d-block text-muted">Phòng: A2-502 | Tiết: 7->10</small>
+                                    <span class="status-link" onclick="openHistory('ARIN330585', 'Trí tuệ nhân tạo')">
                                         <i class="fa-solid fa-eye"></i> Xem lịch sử điểm danh
                                     </span>
                                 </div>
@@ -209,8 +219,8 @@
                     <table class="table table-bordered table-hover text-center align-middle">
                         <thead class="table-light">
                             <tr>
-                                <th rowspan="2" style="background-color: #f8f9fa;">Mã lớp học phần</th>
-                                <th rowspan="2" style="background-color: #f8f9fa;">Tên lớp học phần</th>
+                                <th rowspan="2" style="background-color: #f8f9fa;">Mã môn học</th>
+                                <th rowspan="2" style="background-color: #f8f9fa;">Tên môn học</th>
                                 <th rowspan="2" style="background-color: #f8f9fa;">Số TC</th>
                                 <th colspan="4" style="background-color: #e2e3e5;">Thời gian học</th>
                                 <th colspan="2" style="background-color: #f8d7da;">Điểm danh</th>
@@ -301,7 +311,7 @@
                         if (sessions.length === 0) return;
                         
                         html += `<tr>`;
-                        html += `<td rowspan="${sessions.length}">${cls.malop}</td>`;
+                        html += `<td rowspan="${sessions.length}">${cls.mamon}</td>`;
                         html += `<td rowspan="${sessions.length}">${cls.tenmon}</td>`;
                         html += `<td rowspan="${sessions.length}">${cls.sotc}</td>`;
                         
@@ -334,12 +344,12 @@
             });
         }
 
-        function openHistory(maLop, tenMon) {
+        function openHistory(maMon, tenMon) {
             document.getElementById('histTitle').textContent = `LỊCH SỬ ĐIỂM DANH: ${tenMon}`;
             var myModal = new bootstrap.Modal(document.getElementById('historyModal'));
             myModal.show();
 
-            fetch(`/api/student_history?malop=${maLop}`)
+            fetch(`/api/student_history?mamon=${maMon}`)
             .then(res => res.json())
             .then(data => {
                 let tbody = document.getElementById('histTableBody');

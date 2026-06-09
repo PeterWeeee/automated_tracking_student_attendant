@@ -1,85 +1,117 @@
 -- =========================================================
--- IOT_QUANLYSINHVIEN — SCHEMA (Phiên bản 2.0)
--- Chỉ định nghĩa cấu trúc bảng
+-- IOT_QUANLYSINHVIEN — SCHEMA
+-- Xóa Database cũ và thiết kế lại theo yêu cầu mới
 -- =========================================================
 
--- 1. TẠO CƠ SỞ DỮ LIỆU
-IF NOT EXISTS (SELECT name FROM master.dbo.sysdatabases WHERE name = N'IOT_QUANLYSINHVIEN')
+-- 1. XOÁ VÀ TẠO MỚI CƠ SỞ DỮ LIỆU
+USE master;
+GO
+
+IF EXISTS (SELECT name FROM sys.databases WHERE name = N'IOT_QUANLYSINHVIEN')
 BEGIN
-    CREATE DATABASE IOT_QUANLYSINHVIEN;
+    ALTER DATABASE IOT_QUANLYSINHVIEN SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+    DROP DATABASE IOT_QUANLYSINHVIEN;
 END
+GO
+
+CREATE DATABASE IOT_QUANLYSINHVIEN;
 GO
 
 USE IOT_QUANLYSINHVIEN;
 GO
 
--- Xoá bảng cũ nếu tồn tại (để rebuild)
-IF OBJECT_ID('DiemDanh', 'U') IS NOT NULL DROP TABLE DiemDanh;
-IF OBJECT_ID('BuoiHoc', 'U') IS NOT NULL DROP TABLE BuoiHoc;
-IF OBJECT_ID('DanhSachLop', 'U') IS NOT NULL DROP TABLE DanhSachLop;
-IF OBJECT_ID('LopHocPhan', 'U') IS NOT NULL DROP TABLE LopHocPhan;
-IF OBJECT_ID('NguoiDung', 'U') IS NOT NULL DROP TABLE NguoiDung;
-GO
-
 -- =========================================================
--- 2. BẢNG NGƯỜI DÙNG
+-- 2. BẢNG NGƯỜI DÙNG (CHUNG)
 -- =========================================================
 CREATE TABLE NguoiDung (
-    MaNguoiDung VARCHAR(50)  PRIMARY KEY,     -- MSSV hoặc Mã GV
+    MaNguoiDung VARCHAR(50)  PRIMARY KEY,     -- MSSV hoặc Mã GV (đóng vai trò ID/Username đăng nhập)
     MatKhau     VARCHAR(255) NOT NULL,         
-    HoTen       NVARCHAR(255) NOT NULL,        
-    VaiTro      VARCHAR(20)  NOT NULL CHECK (VaiTro IN ('SinhVien', 'GiangVien')),
+    TenDangNhap NVARCHAR(255) NOT NULL,        -- Tên đăng nhập
+    VaiTro      VARCHAR(20)  NOT NULL CHECK (VaiTro IN ('SinhVien', 'GiangVien'))
+);
+GO
+
+-- =========================================================
+-- 3. BẢNG GIẢNG VIÊN
+-- =========================================================
+CREATE TABLE GiangVien (
+    MaGiangVien VARCHAR(50) PRIMARY KEY,
+    HoTen       NVARCHAR(255) NOT NULL,
+    Khoa        NVARCHAR(255) NULL,
+    ChuyenNganh NVARCHAR(255) NULL,
+    Email       VARCHAR(255)  NULL,
+    SDT         VARCHAR(20)   NULL,
+    HocVi       NVARCHAR(50)  NULL,
+    CONSTRAINT FK_GiangVien_NguoiDung FOREIGN KEY (MaGiangVien) REFERENCES NguoiDung(MaNguoiDung) ON DELETE CASCADE
+);
+GO
+
+-- =========================================================
+-- 4. BẢNG SINH VIÊN
+-- =========================================================
+CREATE TABLE SinhVien (
+    MaSinhVien  VARCHAR(50) PRIMARY KEY,
+    HoTen       NVARCHAR(255) NOT NULL,
+    MaTheRFID   VARCHAR(50)  NULL,
     KhuonMatData NVARCHAR(MAX) NULL,
-    MaTheRFID   VARCHAR(50)  NULL
+    CONSTRAINT FK_SinhVien_NguoiDung FOREIGN KEY (MaSinhVien) REFERENCES NguoiDung(MaNguoiDung) ON DELETE CASCADE
 );
 GO
 
 -- =========================================================
--- 3. BẢNG LỚP HỌC PHẦN
+-- 5. BẢNG MÔN HỌC
 -- =========================================================
-CREATE TABLE LopHocPhan (
-    MaLop     VARCHAR(50)   PRIMARY KEY,      
-    TenMonHoc NVARCHAR(255) NOT NULL,          
-    MaMon     VARCHAR(50)   NULL,             
-    SoTC      INT           DEFAULT 3,
-    NamHoc    VARCHAR(20)   DEFAULT '2024-2025',
-    HocKy     INT           DEFAULT 1,
-    MaGV      VARCHAR(50)   NULL,             
-    CONSTRAINT FK_LopHocPhan_GV
-        FOREIGN KEY (MaGV) REFERENCES NguoiDung(MaNguoiDung)
+CREATE TABLE MonHoc (
+    MaMon     VARCHAR(50)   PRIMARY KEY,      
+    TenMon    NVARCHAR(255) NOT NULL,          
+    SoTC      INT           DEFAULT 3
 );
 GO
 
 -- =========================================================
--- 4. BẢNG DANH SÁCH LỚP
+-- 6. BẢNG PHÒNG HỌC
 -- =========================================================
-CREATE TABLE DanhSachLop (
-    MaLop VARCHAR(50) NOT NULL,
-    MaSV  VARCHAR(50) NOT NULL,
-    PRIMARY KEY (MaLop, MaSV),
-    FOREIGN KEY (MaLop) REFERENCES LopHocPhan(MaLop) ON DELETE CASCADE,
-    FOREIGN KEY (MaSV)  REFERENCES NguoiDung(MaNguoiDung) ON DELETE CASCADE
+CREATE TABLE PhongHoc (
+    MaPhong   VARCHAR(50) PRIMARY KEY,
+    TenPhong  NVARCHAR(255) NOT NULL
 );
 GO
 
 -- =========================================================
--- 5. BẢNG BUỔI HỌC
+-- 7. BẢNG DANH SÁCH MÔN HỌC (Sinh viên học môn nào với GV nào)
+-- =========================================================
+CREATE TABLE DanhSachMon (
+    MaMon       VARCHAR(50) NOT NULL,
+    MaSV        VARCHAR(50) NOT NULL,
+    MaGiangVien VARCHAR(50) NULL,
+    PRIMARY KEY (MaMon, MaSV),
+    FOREIGN KEY (MaMon) REFERENCES MonHoc(MaMon) ON DELETE CASCADE,
+    FOREIGN KEY (MaSV)  REFERENCES SinhVien(MaSinhVien) ON DELETE CASCADE,
+    FOREIGN KEY (MaGiangVien) REFERENCES GiangVien(MaGiangVien)
+);
+GO
+
+-- =========================================================
+-- 8. BẢNG BUỔI HỌC
 -- =========================================================
 CREATE TABLE BuoiHoc (
     MaBuoiHoc   INT IDENTITY(1,1) PRIMARY KEY,
-    MaLop       VARCHAR(50)  NOT NULL,
+    MaPhong     VARCHAR(50)  NULL,
+    MaMon       VARCHAR(50)  NOT NULL,
+    MaGiangVien VARCHAR(50)  NOT NULL,
     NgayHoc     DATE         NOT NULL DEFAULT CAST(GETDATE() AS DATE),
     ThuTrongTuan TINYINT     NULL,  
     Ca          NVARCHAR(10) NULL,  
     TietBatDau  TINYINT      NULL,  
     TietKetThuc TINYINT      NULL,  
-    Phong       NVARCHAR(50) NULL,  
-    FOREIGN KEY (MaLop) REFERENCES LopHocPhan(MaLop) ON DELETE CASCADE
+    FOREIGN KEY (MaMon) REFERENCES MonHoc(MaMon) ON DELETE CASCADE,
+    FOREIGN KEY (MaPhong) REFERENCES PhongHoc(MaPhong) ON DELETE CASCADE,
+    FOREIGN KEY (MaGiangVien) REFERENCES GiangVien(MaGiangVien) 
 );
 GO
 
 -- =========================================================
--- 6. BẢNG ĐIỂM DANH
+-- 9. BẢNG ĐIỂM DANH
 -- =========================================================
 CREATE TABLE DiemDanh (
     MaDiemDanh  INT IDENTITY(1,1) PRIMARY KEY,
@@ -89,6 +121,6 @@ CREATE TABLE DiemDanh (
     TrangThai   NVARCHAR(50) NOT NULL,  
     GhiChu      NVARCHAR(255) NULL,     
     FOREIGN KEY (MaBuoiHoc) REFERENCES BuoiHoc(MaBuoiHoc) ON DELETE CASCADE,
-    FOREIGN KEY (MaSV)      REFERENCES NguoiDung(MaNguoiDung) ON DELETE CASCADE
+    FOREIGN KEY (MaSV)      REFERENCES SinhVien(MaSinhVien) ON DELETE CASCADE
 );
 GO

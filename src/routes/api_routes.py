@@ -17,18 +17,19 @@ def get_attendance():
         cursor = conn.cursor()
         query = """
             SELECT
-                n.MaNguoiDung AS MaSV,
-                n.HoTen,
-                CASE WHEN n.KhuonMatData IS NULL THEN 0 ELSE 1 END AS CoDuLieuMat,
+                sv.MaSinhVien AS MaSV,
+                sv.HoTen,
+                CASE WHEN sv.KhuonMatData IS NULL THEN 0 ELSE 1 END AS CoDuLieuMat,
+                CASE WHEN sv.MaTheRFID IS NULL THEN 0 ELSE 1 END AS CoDuLieuThe,
                 FORMAT(dd.ThoiGianQuet, 'HH:mm:ss') AS GioQuet,
                 ISNULL(dd.TrangThai, N'Vắng') AS TrangThai,
                 ISNULL(dd.GhiChu, '') AS GhiChu
             FROM BuoiHoc bh
-            JOIN DanhSachLop dsl ON bh.MaLop = dsl.MaLop
-            JOIN NguoiDung n ON dsl.MaSV = n.MaNguoiDung
-            LEFT JOIN DiemDanh dd ON bh.MaBuoiHoc = dd.MaBuoiHoc AND dd.MaSV = n.MaNguoiDung
+            JOIN DanhSachMon dsm ON bh.MaMon = dsm.MaMon
+            JOIN SinhVien sv ON dsm.MaSV = sv.MaSinhVien
+            LEFT JOIN DiemDanh dd ON bh.MaBuoiHoc = dd.MaBuoiHoc AND dd.MaSV = sv.MaSinhVien
             WHERE bh.MaBuoiHoc = ?
-            ORDER BY n.HoTen
+            ORDER BY sv.HoTen
         """
         cursor.execute(query, (buoi_id,))
         data = []
@@ -38,6 +39,7 @@ def get_attendance():
                 "masv": r.MaSV,
                 "hoten": r.HoTen,
                 "co_mat_ai": r.CoDuLieuMat,
+                "co_the_rfid": getattr(r, 'CoDuLieuThe', 0),
                 "gioquet": r.GioQuet if r.GioQuet else "--:--",
                 "trangthai": r.TrangThai,
                 "phuongthuc": r.GhiChu
@@ -58,11 +60,11 @@ def get_teacher_schedule():
         cursor = conn.cursor()
         query = """
             SELECT bh.MaBuoiHoc, bh.NgayHoc, bh.ThuTrongTuan, bh.Ca,
-                   bh.TietBatDau, bh.TietKetThuc, bh.Phong,
-                   lhp.MaLop, lhp.TenMonHoc, lhp.MaMon
+                   bh.TietBatDau, bh.TietKetThuc, bh.MaPhong AS Phong,
+                   mh.MaMon, mh.TenMon AS TenMonHoc
             FROM BuoiHoc bh
-            JOIN LopHocPhan lhp ON bh.MaLop = lhp.MaLop
-            WHERE lhp.MaGV = ?
+            JOIN MonHoc mh ON bh.MaMon = mh.MaMon
+            WHERE bh.MaGiangVien = ?
             ORDER BY bh.ThuTrongTuan, bh.TietBatDau
         """
         cursor.execute(query, (session['user_id'],))
@@ -76,9 +78,8 @@ def get_teacher_schedule():
                 "tiet_bd": r.TietBatDau,
                 "tiet_kt": r.TietKetThuc,
                 "phong": r.Phong if r.Phong else "",
-                "malop": r.MaLop,
-                "tenmon": r.TenMonHoc,
-                "mamon": r.MaMon if r.MaMon else ""
+                "mamon": r.MaMon,
+                "tenmon": r.TenMonHoc
             })
         conn.close()
         return jsonify({"status": "ok", "data": data})
@@ -125,7 +126,7 @@ def update_status():
 @api_bp.route('/student_history')
 def student_history():
     """Sinh viên xem lịch sử điểm danh của mình theo Lớp"""
-    malop = request.args.get('malop')
+    mamon = request.args.get('mamon')
     masv = session.get('user_id')
     try:
         conn = pyodbc.connect(Config.CONN_STR)
@@ -137,10 +138,10 @@ def student_history():
                 ISNULL(dd.TrangThai, N'Vắng') as TrangThai
             FROM BuoiHoc bh
             LEFT JOIN DiemDanh dd ON bh.MaBuoiHoc = dd.MaBuoiHoc AND dd.MaSV = ?
-            WHERE bh.MaLop = ?
+            WHERE bh.MaMon = ?
             ORDER BY bh.NgayHoc DESC
         """
-        cursor.execute(query, (masv, malop))
+        cursor.execute(query, (masv, mamon))
         data = []
         for r in cursor.fetchall():
             data.append({
@@ -214,9 +215,9 @@ def upload_excel():
         return jsonify({"status": "error", "msg": "Không tìm thấy file!"})
     
     file = request.files['file']
-    malop = request.form.get('malop')
+    mamon = request.form.get('mamon')
     
-    if file.filename == '' or not malop:
+    if file.filename == '' or not mamon:
         return jsonify({"status": "error", "msg": "Dữ liệu không hợp lệ!"})
         
     try:
@@ -277,14 +278,17 @@ def upload_excel():
                 user_row = cursor.fetchone()
                 if user_row and user_row[0] == 0:
                     cursor.execute(
-                        "INSERT INTO NguoiDung (MaNguoiDung, MatKhau, HoTen, VaiTro) VALUES (?, '123456', ?, 'SinhVien')",
+                        "INSERT INTO NguoiDung (MaNguoiDung, MatKhau, TenDangNhap, VaiTro) VALUES (?, '123456', ?, 'SinhVien')",
+                        (ma_sv, ma_sv))
+                    cursor.execute(
+                        "INSERT INTO SinhVien (MaSinhVien, HoTen) VALUES (?, ?)",
                         (ma_sv, ho_ten))
 
-                # 2. Map vào lớp học
-                cursor.execute("SELECT COUNT(*) FROM DanhSachLop WHERE MaLop=? AND MaSV=?", (malop, ma_sv))
+                # 2. Map vào danh sách môn
+                cursor.execute("SELECT COUNT(*) FROM DanhSachMon WHERE MaMon=? AND MaSV=?", (mamon, ma_sv))
                 class_row = cursor.fetchone()
                 if class_row and class_row[0] == 0:
-                    cursor.execute("INSERT INTO DanhSachLop (MaLop, MaSV) VALUES (?, ?)", (malop, ma_sv))
+                    cursor.execute("INSERT INTO DanhSachMon (MaMon, MaSV, MaGiangVien) VALUES (?, ?, ?)", (mamon, ma_sv, session.get('user_id')))
                     
                 count += 1
             except Exception as e:
@@ -293,7 +297,7 @@ def upload_excel():
 
         conn.commit()
         conn.close()
-        return jsonify({"status": "ok", "msg": f"Đã nạp {count} sinh viên vào lớp {malop} thành công!"})
+        return jsonify({"status": "ok", "msg": f"Đã nạp {count} sinh viên vào môn {mamon} thành công!"})
     except Exception as e:
         return jsonify({"status": "error", "msg": str(e)})
 
@@ -319,7 +323,7 @@ def rfid_check():
         cursor = conn.cursor()
         
         # Tìm sinh viên qua MaTheRFID
-        cursor.execute("SELECT MaNguoiDung, HoTen FROM NguoiDung WHERE MaTheRFID=?", (uid,))
+        cursor.execute("SELECT MaSinhVien, HoTen FROM SinhVien WHERE MaTheRFID=?", (uid,))
         user = cursor.fetchone()
         
         if not user:
@@ -329,7 +333,7 @@ def rfid_check():
             conn.close()
             return jsonify({"status": "error", "msg": "Thẻ không hợp lệ hoặc chưa được đăng ký"}), 404
             
-        ma_sv = user.MaNguoiDung
+        ma_sv = user.MaSinhVien
         ho_ten = user.HoTen
         
         import time
@@ -397,7 +401,7 @@ def teacher_statistics():
     if not session.get('user_id'):
         return jsonify({"status": "error", "msg": "Chưa đăng nhập"})
     try:
-        malop = request.args.get('malop')
+        mamon = request.args.get('mamon')
         time_range = request.args.get('time_range')
         thu_trong_tuan = request.args.get('thu') # e.g., '2', '3', '4' or 'all'
         
@@ -405,24 +409,23 @@ def teacher_statistics():
         cursor = conn.cursor()
         
         base_query = """
-            FROM LopHocPhan lhp
-            JOIN BuoiHoc bh ON lhp.MaLop = bh.MaLop
-            JOIN DanhSachLop dsl ON lhp.MaLop = dsl.MaLop
-            LEFT JOIN DiemDanh dd ON bh.MaBuoiHoc = dd.MaBuoiHoc AND dsl.MaSV = dd.MaSV
-            WHERE lhp.MaGV = ?
+            FROM DanhSachMon dsm
+            JOIN BuoiHoc bh ON dsm.MaMon = bh.MaMon AND dsm.MaGiangVien = bh.MaGiangVien
+            LEFT JOIN DiemDanh dd ON bh.MaBuoiHoc = dd.MaBuoiHoc AND dsm.MaSV = dd.MaSV
+            WHERE dsm.MaGiangVien = ?
         """
         params = [session['user_id']]
         
-        if malop and malop != 'all':
-            base_query += " AND lhp.MaLop = ?"
-            params.append(malop)
+        if mamon and mamon != 'all':
+            base_query += " AND dsm.MaMon = ?"
+            params.append(mamon)
 
         if thu_trong_tuan and thu_trong_tuan != 'all':
             base_query += " AND bh.ThuTrongTuan = ?"
             params.append(int(thu_trong_tuan))
             
         if time_range == 'semester':
-            base_query += " AND lhp.HocKy = 1 AND lhp.NamHoc = '2024-2025'" # Defaulting to current semester
+            pass # Removed HocKy filter as it's not in MonHoc, might add later
         elif time_range == 'week':
             base_query += " AND DATEPART(ww, bh.NgayHoc) = DATEPART(ww, GETDATE()) AND YEAR(bh.NgayHoc) = YEAR(GETDATE())"
         elif time_range == 'month':
@@ -491,37 +494,37 @@ def student_attendance_summary():
         
         query = """
             SELECT 
-                lhp.MaLop, 
-                lhp.TenMonHoc, 
-                lhp.SoTC,
+                mh.MaMon, 
+                mh.TenMon, 
+                mh.SoTC,
                 bh.NgayHoc,
                 bh.ThuTrongTuan,
-                bh.Phong,
+                bh.MaPhong AS Phong,
                 bh.TietBatDau,
                 bh.TietKetThuc,
                 ISNULL(dd.TrangThai, N'Vắng') AS TrangThai
-            FROM DanhSachLop dsl
-            JOIN LopHocPhan lhp ON dsl.MaLop = lhp.MaLop
-            JOIN BuoiHoc bh ON dsl.MaLop = bh.MaLop
-            LEFT JOIN DiemDanh dd ON bh.MaBuoiHoc = dd.MaBuoiHoc AND dsl.MaSV = dd.MaSV
-            WHERE dsl.MaSV = ? AND lhp.NamHoc = ? AND lhp.HocKy = ?
-            ORDER BY lhp.MaLop, bh.NgayHoc ASC
+            FROM DanhSachMon dsm
+            JOIN MonHoc mh ON dsm.MaMon = mh.MaMon
+            JOIN BuoiHoc bh ON dsm.MaMon = bh.MaMon AND dsm.MaGiangVien = bh.MaGiangVien
+            LEFT JOIN DiemDanh dd ON bh.MaBuoiHoc = dd.MaBuoiHoc AND dsm.MaSV = dd.MaSV
+            WHERE dsm.MaSV = ? 
+            ORDER BY mh.MaMon, bh.NgayHoc ASC
         """
-        cursor.execute(query, (session['user_id'], nam_hoc, hoc_ky))
+        cursor.execute(query, (session['user_id'],))
         
-        # Group data by MaLop
+        # Group data by MaMon
         grouped_data = {}
         for r in cursor.fetchall():
-            malop = r.MaLop
-            if malop not in grouped_data:
-                grouped_data[malop] = {
-                    "malop": malop,
-                    "tenmon": r.TenMonHoc,
+            mamon = r.MaMon
+            if mamon not in grouped_data:
+                grouped_data[mamon] = {
+                    "mamon": mamon,
+                    "tenmon": r.TenMon,
                     "sotc": r.SoTC if r.SoTC else 3,
                     "sessions": []
                 }
             
-            grouped_data[malop]["sessions"].append({
+            grouped_data[mamon]["sessions"].append({
                 "ngay": str(r.NgayHoc),
                 "thu": r.ThuTrongTuan,
                 "phong": r.Phong,
@@ -533,3 +536,4 @@ def student_attendance_summary():
         return jsonify({"status": "ok", "data": list(grouped_data.values())})
     except Exception as e:
         return jsonify({"status": "error", "msg": str(e)})
+

@@ -15,21 +15,32 @@ def login():
         try:
             conn = pyodbc.connect(Config.CONN_STR)
             cursor = conn.cursor()
-            cursor.execute("SELECT HoTen, VaiTro FROM NguoiDung WHERE MaNguoiDung = ? AND MatKhau = ?",
+            cursor.execute("SELECT VaiTro FROM NguoiDung WHERE MaNguoiDung = ? AND MatKhau = ?",
                            (username, password))
             user = cursor.fetchone()
-            conn.close()
 
             if user:
+                vaitro = user.VaiTro
+                ho_ten = username
+                if vaitro == 'GiangVien':
+                    cursor.execute("SELECT HoTen FROM GiangVien WHERE MaGiangVien = ?", (username,))
+                    gv = cursor.fetchone()
+                    if gv: ho_ten = gv.HoTen
+                elif vaitro == 'SinhVien':
+                    cursor.execute("SELECT HoTen FROM SinhVien WHERE MaSinhVien = ?", (username,))
+                    sv = cursor.fetchone()
+                    if sv: ho_ten = sv.HoTen
+                conn.close()
+
                 session['user_id'] = username
-                session['ho_ten'] = user.HoTen
-                session['role'] = user.VaiTro
-                if user.VaiTro == 'SinhVien':
+                session['ho_ten'] = ho_ten
+                session['role'] = vaitro
+                if vaitro == 'SinhVien':
                     return redirect(url_for('web.student'))
-                elif user.VaiTro == 'GiangVien':
+                elif vaitro == 'GiangVien':
                     return redirect(url_for('web.teacher'))
                 else:
-                    flash(f"Vai trò '{user.VaiTro}' không được hỗ trợ.")
+                    flash(f"Vai trò '{vaitro}' không được hỗ trợ.")
             else:
                 flash("Sai mã người dùng hoặc mật khẩu!")
         except Exception as e:
@@ -44,13 +55,14 @@ def student():
         
     conn = pyodbc.connect(Config.CONN_STR)
     cursor = conn.cursor()
-    cursor.execute("SELECT MaTheRFID FROM NguoiDung WHERE MaNguoiDung = ?", (session.get('user_id'),))
+    cursor.execute("SELECT MaTheRFID, KhuonMatData FROM SinhVien WHERE MaSinhVien = ?", (session.get('user_id'),))
     user = cursor.fetchone()
     rfid = user.MaTheRFID if user and user.MaTheRFID else ""
+    has_face = True if user and user.KhuonMatData else False
     conn.close()
     
     return render_template('student_dashboard.html', hoten=session.get('ho_ten'),
-                           masv=session.get('user_id'), rfid=rfid)
+                           masv=session.get('user_id'), rfid=rfid, has_face=has_face)
 
 
 @web_bp.route('/teacher')
@@ -70,7 +82,7 @@ def upload_face():
         vec_str = json.dumps(encs[0].tolist())
         conn = pyodbc.connect(Config.CONN_STR)
         cursor = conn.cursor()
-        cursor.execute("UPDATE NguoiDung SET KhuonMatData = ? WHERE MaNguoiDung = ?", (vec_str, session['user_id']))
+        cursor.execute("UPDATE SinhVien SET KhuonMatData = ? WHERE MaSinhVien = ?", (vec_str, session['user_id']))
         conn.commit()
         load_ai_data_from_db()
         return "Cập nhật khuôn mặt AI thành công!", 200
@@ -89,7 +101,7 @@ def update_rfid():
         try:
             conn = pyodbc.connect(Config.CONN_STR)
             cursor = conn.cursor()
-            cursor.execute("UPDATE NguoiDung SET MaTheRFID = ? WHERE MaNguoiDung = ?", (rfid_code, session['user_id']))
+            cursor.execute("UPDATE SinhVien SET MaTheRFID = ? WHERE MaSinhVien = ?", (rfid_code, session['user_id']))
             conn.commit()
             conn.close()
             return "Cập nhật mã thẻ RFID thành công!", 200
