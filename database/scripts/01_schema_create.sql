@@ -41,6 +41,9 @@ CREATE TABLE LopHocPhan (
     MaLop     VARCHAR(50)   PRIMARY KEY,      
     TenMonHoc NVARCHAR(255) NOT NULL,          
     MaMon     VARCHAR(50)   NULL,             
+    SoTC      INT           DEFAULT 3,
+    NamHoc    VARCHAR(20)   DEFAULT '2024-2025',
+    HocKy     INT           DEFAULT 1,
     MaGV      VARCHAR(50)   NULL,             
     CONSTRAINT FK_LopHocPhan_GV
         FOREIGN KEY (MaGV) REFERENCES NguoiDung(MaNguoiDung)

@@ -91,10 +91,15 @@ def update_status():
     """API để Giảng viên sửa điểm danh thủ công"""
     masv = request.form.get('masv')
     status = request.form.get('status')
+    buoi_id = request.form.get('buoi_id', type=int)
+    
+    if not buoi_id:
+        buoi_id = ext.current_buoi_hoc_id
+
     try:
         conn = pyodbc.connect(Config.CONN_STR)
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM DiemDanh WHERE MaBuoiHoc=? AND MaSV=?", (ext.current_buoi_hoc_id, masv))
+        cursor.execute("SELECT COUNT(*) FROM DiemDanh WHERE MaBuoiHoc=? AND MaSV=?", (buoi_id, masv))
         row = cursor.fetchone()
         exists = (row[0] > 0) if row else False
 
@@ -103,13 +108,13 @@ def update_status():
                 UPDATE DiemDanh
                 SET TrangThai=?, ThoiGianQuet=GETDATE(), GhiChu=N'GV Sửa tay'
                 WHERE MaBuoiHoc=? AND MaSV=?""",
-                           (status, ext.current_buoi_hoc_id, masv))
+                           (status, buoi_id, masv))
         else:
             if status != 'Vắng':
                 cursor.execute("""
                     INSERT INTO DiemDanh (MaBuoiHoc, MaSV, ThoiGianQuet, TrangThai, GhiChu)
                     VALUES (?, ?, GETDATE(), ?, N'GV Sửa tay')
-                """, (ext.current_buoi_hoc_id, masv, status))
+                """, (buoi_id, masv, status))
         conn.commit()
         conn.close()
         return jsonify({"status": "ok", "msg": "Cập nhật thành công!"})
@@ -158,6 +163,15 @@ def toggle_camera():
         if buoi_id:
             ext.current_buoi_hoc_id = int(buoi_id)
 
+        duration = request.form.get('duration')
+        if duration:
+            ext.scan_duration_seconds = int(duration) * 60
+        else:
+            ext.scan_duration_seconds = 30 * 60 # Default 30 mins
+
+        import time
+        ext.session_start_time = time.time()
+
         load_ai_data_from_db()
         ext.camera_is_running = True
         ext.latest_scan_data = {"masv": "--", "hoten": "Đang chờ quét...", "time": "--:--:--", "status": "waiting"}
@@ -170,6 +184,15 @@ def toggle_camera():
 @api_bp.route('/latest_scan')
 def get_latest_scan():
     return jsonify(ext.latest_scan_data)
+
+@api_bp.route('/camera_status')
+def get_camera_status():
+    return jsonify({
+        "is_running": ext.camera_is_running,
+        "buoi_id": getattr(ext, 'current_buoi_hoc_id', None),
+        "start_time": getattr(ext, 'session_start_time', 0),
+        "duration": getattr(ext, 'scan_duration_seconds', 0)
+    })
 
 
 @api_bp.route('/cam_proxy')
@@ -317,15 +340,26 @@ def rfid_check():
             
         print(f"[RFID] 👉 NHẬN DIỆN: {ho_ten} ({ma_sv})")
         
+        # Xác định trạng thái Đúng giờ hay Trễ
+        elapsed = time.time() - ext.session_start_time
+        scan_status = 'Đúng giờ' if elapsed <= ext.scan_duration_seconds else 'Trễ'
+
         # Ghi nhận điểm danh
         current_buoi_id = ext.current_buoi_hoc_id
-        cursor.execute("SELECT COUNT(*) FROM DiemDanh WHERE MaSV=? AND MaBuoiHoc=?", (ma_sv, current_buoi_id))
+        cursor.execute("SELECT TrangThai FROM DiemDanh WHERE MaSV=? AND MaBuoiHoc=?", (ma_sv, current_buoi_id))
         row = cursor.fetchone()
-        if row and row[0] == 0:
+        if not row:
             cursor.execute("""
                 INSERT INTO DiemDanh (MaBuoiHoc, MaSV, ThoiGianQuet, TrangThai, GhiChu)
-                VALUES (?, ?, GETDATE(), N'Đúng giờ', N'rfid')
-            """, (current_buoi_id, ma_sv))
+                VALUES (?, ?, GETDATE(), ?, N'rfid')
+            """, (current_buoi_id, ma_sv, scan_status))
+            conn.commit()
+        elif row[0] == 'Vắng':
+            cursor.execute("""
+                UPDATE DiemDanh 
+                SET TrangThai=?, ThoiGianQuet=GETDATE(), GhiChu=N'rfid'
+                WHERE MaBuoiHoc=? AND MaSV=?
+            """, (scan_status, current_buoi_id, ma_sv))
             conn.commit()
             
         conn.close()
@@ -357,3 +391,145 @@ def rfid_check():
 
     except Exception as e:
         return jsonify({"status": "error", "msg": str(e)}), 500
+
+@api_bp.route('/teacher_statistics')
+def teacher_statistics():
+    if not session.get('user_id'):
+        return jsonify({"status": "error", "msg": "Chưa đăng nhập"})
+    try:
+        malop = request.args.get('malop')
+        time_range = request.args.get('time_range')
+        thu_trong_tuan = request.args.get('thu') # e.g., '2', '3', '4' or 'all'
+        
+        conn = pyodbc.connect(Config.CONN_STR)
+        cursor = conn.cursor()
+        
+        base_query = """
+            FROM LopHocPhan lhp
+            JOIN BuoiHoc bh ON lhp.MaLop = bh.MaLop
+            JOIN DanhSachLop dsl ON lhp.MaLop = dsl.MaLop
+            LEFT JOIN DiemDanh dd ON bh.MaBuoiHoc = dd.MaBuoiHoc AND dsl.MaSV = dd.MaSV
+            WHERE lhp.MaGV = ?
+        """
+        params = [session['user_id']]
+        
+        if malop and malop != 'all':
+            base_query += " AND lhp.MaLop = ?"
+            params.append(malop)
+
+        if thu_trong_tuan and thu_trong_tuan != 'all':
+            base_query += " AND bh.ThuTrongTuan = ?"
+            params.append(int(thu_trong_tuan))
+            
+        if time_range == 'semester':
+            base_query += " AND lhp.HocKy = 1 AND lhp.NamHoc = '2024-2025'" # Defaulting to current semester
+        elif time_range == 'week':
+            base_query += " AND DATEPART(ww, bh.NgayHoc) = DATEPART(ww, GETDATE()) AND YEAR(bh.NgayHoc) = YEAR(GETDATE())"
+        elif time_range == 'month':
+            base_query += " AND MONTH(bh.NgayHoc) = MONTH(GETDATE()) AND YEAR(bh.NgayHoc) = YEAR(GETDATE())"
+
+        # 1. TỔNG QUAN (Pie Chart)
+        query_pie = "SELECT ISNULL(dd.TrangThai, N'Vắng') AS TrangThai, COUNT(*) AS SoLuong " + base_query + " GROUP BY ISNULL(dd.TrangThai, N'Vắng')"
+        cursor.execute(query_pie, tuple(params))
+        pie_data = {"Đúng giờ": 0, "Trễ": 0, "Vắng": 0}
+        for r in cursor.fetchall():
+            if r.TrangThai in pie_data:
+                pie_data[r.TrangThai] = r.SoLuong
+            else:
+                pie_data[r.TrangThai] = r.SoLuong
+
+        # 2. XU HƯỚNG THEO NGÀY (Bar Chart)
+        query_bar = """
+            SELECT bh.NgayHoc, ISNULL(dd.TrangThai, N'Vắng') AS TrangThai, COUNT(*) AS SoLuong
+            """ + base_query + """
+            GROUP BY bh.NgayHoc, ISNULL(dd.TrangThai, N'Vắng')
+            ORDER BY bh.NgayHoc ASC
+        """
+        cursor.execute(query_bar, tuple(params))
+        
+        # Group by NgayHoc
+        trend_dict = {}
+        for r in cursor.fetchall():
+            ngay = str(r.NgayHoc)
+            if ngay not in trend_dict:
+                trend_dict[ngay] = {"Đúng giờ": 0, "Trễ": 0, "Vắng": 0}
+            status = r.TrangThai if r.TrangThai in trend_dict[ngay] else "Vắng"
+            trend_dict[ngay][status] += r.SoLuong
+            
+        # Convert to list for frontend
+        bar_data = []
+        for ngay in sorted(trend_dict.keys()):
+            bar_data.append({
+                "ngayhoc": ngay,
+                "dunggio": trend_dict[ngay]["Đúng giờ"],
+                "tre": trend_dict[ngay]["Trễ"],
+                "vang": trend_dict[ngay]["Vắng"]
+            })
+
+        conn.close()
+        return jsonify({
+            "status": "ok", 
+            "data": {
+                "pie": pie_data,
+                "bar": bar_data
+            }
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "msg": str(e)})
+
+@api_bp.route('/student_attendance_summary')
+def student_attendance_summary():
+    """Lấy danh sách các lớp và chi tiết từng buổi học cho sinh viên"""
+    if not session.get('user_id'):
+        return jsonify({"status": "error", "msg": "Chưa đăng nhập"})
+    try:
+        nam_hoc = request.args.get('nam_hoc', '2024-2025')
+        hoc_ky = request.args.get('hoc_ky', '1', type=int)
+
+        conn = pyodbc.connect(Config.CONN_STR)
+        cursor = conn.cursor()
+        
+        query = """
+            SELECT 
+                lhp.MaLop, 
+                lhp.TenMonHoc, 
+                lhp.SoTC,
+                bh.NgayHoc,
+                bh.ThuTrongTuan,
+                bh.Phong,
+                bh.TietBatDau,
+                bh.TietKetThuc,
+                ISNULL(dd.TrangThai, N'Vắng') AS TrangThai
+            FROM DanhSachLop dsl
+            JOIN LopHocPhan lhp ON dsl.MaLop = lhp.MaLop
+            JOIN BuoiHoc bh ON dsl.MaLop = bh.MaLop
+            LEFT JOIN DiemDanh dd ON bh.MaBuoiHoc = dd.MaBuoiHoc AND dsl.MaSV = dd.MaSV
+            WHERE dsl.MaSV = ? AND lhp.NamHoc = ? AND lhp.HocKy = ?
+            ORDER BY lhp.MaLop, bh.NgayHoc ASC
+        """
+        cursor.execute(query, (session['user_id'], nam_hoc, hoc_ky))
+        
+        # Group data by MaLop
+        grouped_data = {}
+        for r in cursor.fetchall():
+            malop = r.MaLop
+            if malop not in grouped_data:
+                grouped_data[malop] = {
+                    "malop": malop,
+                    "tenmon": r.TenMonHoc,
+                    "sotc": r.SoTC if r.SoTC else 3,
+                    "sessions": []
+                }
+            
+            grouped_data[malop]["sessions"].append({
+                "ngay": str(r.NgayHoc),
+                "thu": r.ThuTrongTuan,
+                "phong": r.Phong,
+                "tiet": f"{r.TietBatDau} - {r.TietKetThuc}",
+                "trangthai": r.TrangThai
+            })
+            
+        conn.close()
+        return jsonify({"status": "ok", "data": list(grouped_data.values())})
+    except Exception as e:
+        return jsonify({"status": "error", "msg": str(e)})

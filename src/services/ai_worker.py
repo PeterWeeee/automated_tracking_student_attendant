@@ -127,16 +127,27 @@ def ai_process_worker():
                             print(f"[AI] 👉 NHẬN DIỆN: {ho_ten}")
 
                             try:
+                                # Xác định trạng thái Đúng giờ hay Trễ
+                                elapsed = time.time() - ext.session_start_time
+                                scan_status = 'Đúng giờ' if elapsed <= ext.scan_duration_seconds else 'Trễ'
+
                                 conn = pyodbc.connect(Config.CONN_STR)
                                 cursor = conn.cursor()
-                                cursor.execute("SELECT COUNT(*) FROM DiemDanh WHERE MaSV=? AND MaBuoiHoc=?",
+                                cursor.execute("SELECT TrangThai FROM DiemDanh WHERE MaSV=? AND MaBuoiHoc=?",
                                                (ma_sv, current_buoi_id))
                                 row = cursor.fetchone()
-                                if row and row[0] == 0:
+                                if not row:
                                     cursor.execute("""
                                         INSERT INTO DiemDanh (MaBuoiHoc, MaSV, ThoiGianQuet, TrangThai, GhiChu)
-                                        VALUES (?, ?, GETDATE(), N'Đúng giờ', N'face')
-                                    """, (current_buoi_id, ma_sv))
+                                        VALUES (?, ?, GETDATE(), ?, N'face')
+                                    """, (current_buoi_id, ma_sv, scan_status))
+                                    conn.commit()
+                                elif row[0] == 'Vắng':
+                                    cursor.execute("""
+                                        UPDATE DiemDanh 
+                                        SET TrangThai=?, ThoiGianQuet=GETDATE(), GhiChu=N'face'
+                                        WHERE MaBuoiHoc=? AND MaSV=?
+                                    """, (scan_status, current_buoi_id, ma_sv))
                                     conn.commit()
                                 conn.close()
                             except Exception as db_e:

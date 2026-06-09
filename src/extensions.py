@@ -16,3 +16,7 @@ latest_scan_data = {
     "status": "waiting"
 }
 last_recognized_time = {} # Cơ chế debounce chống trùng lặp (30s)
+
+# Tracking duration for latency detection
+session_start_time = 0.0
+scan_duration_seconds = 0

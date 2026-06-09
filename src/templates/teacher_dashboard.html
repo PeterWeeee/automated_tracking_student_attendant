@@ -88,14 +88,14 @@
     </div>
     <div class="menu-title">Trang cá nhân</div>
     <ul class="nav flex-column">
-        <li class="nav-item"><a class="nav-link" href="#"><i class="fa-solid fa-book"></i> Hướng dẫn sử dụng</a></li>
-        <li class="nav-item"><a class="nav-link" href="#"><i class="fa-solid fa-user"></i> Thông tin cá nhân</a></li>
-        <li class="nav-item"><a class="nav-link text-warning" href="#"><i class="fa-solid fa-users"></i> Quản lý sinh viên</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" onclick="switchTab('guide')"><i class="fa-solid fa-book"></i> Hướng dẫn sử dụng</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" onclick="switchTab('profile')"><i class="fa-solid fa-user"></i> Thông tin cá nhân</a></li>
+        <li class="nav-item"><a class="nav-link text-warning" href="#" onclick="switchTab('statistics')"><i class="fa-solid fa-chart-pie"></i> Thống kê điểm danh</a></li>
     </ul>
     <div class="menu-title mt-3">Cài đặt giảng dạy</div>
     <ul class="nav flex-column">
         <li class="nav-item">
-            <a class="nav-link active" href="#"><i class="fa-solid fa-calendar-days"></i> Lịch giảng dạy</a>
+            <a class="nav-link active" href="#" onclick="switchTab('schedule')" id="nav-schedule"><i class="fa-solid fa-calendar-days"></i> Lịch giảng dạy</a>
         </li>
         <li class="nav-item">
             <a class="nav-link text-danger fw-bold mt-5" href="/logout">
@@ -114,7 +114,7 @@
         <i class="fa-solid fa-circle-user fa-lg"></i>
     </div>
 
-    <div class="p-4">
+    <div class="p-4 content-section" id="section-schedule">
         <h4 class="fw-bold mb-4" style="color:var(--ute-dark); border-bottom:2px solid var(--ute-dark); display:inline-block;">
             <i class="fa-solid fa-calendar-week me-2"></i>LỊCH GIẢNG DẠY
         </h4>
@@ -147,6 +147,91 @@
                     </thead>
                     <tbody id="tkbBody"></tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- HƯỚNG DẪN SỬ DỤNG -->
+    <div class="p-4 content-section" id="section-guide" style="display: none;">
+        <h4 class="fw-bold mb-4" style="color:var(--ute-dark); border-bottom:2px solid var(--ute-dark); display:inline-block;">
+            <i class="fa-solid fa-book me-2"></i>HƯỚNG DẪN SỬ DỤNG
+        </h4>
+        <div class="bg-white shadow-sm p-4 border rounded">
+            <h5>1. Xem Lịch Giảng Dạy</h5>
+            <p>Sau khi đăng nhập, hệ thống sẽ tự động hiển thị Thời khóa biểu của bạn tại trang chủ.</p>
+            <h5>2. Quản Lý Điểm Danh</h5>
+            <p>Nhấp vào môn học trong Thời khóa biểu để mở cửa sổ Quản lý Điểm danh. Tại đây bạn có thể:</p>
+            <ul>
+                <li><strong>Điểm danh bằng AI:</strong> Nhấn "Bắt đầu" để mở camera nhận diện khuôn mặt.</li>
+                <li><strong>Quét Tự Động:</strong> Thiết lập thời gian quét và hệ thống sẽ tự động đóng sau khoảng thời gian đó.</li>
+                <li><strong>Thêm bằng Excel:</strong> Tải lên danh sách sinh viên ban đầu.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- THÔNG TIN CÁ NHÂN -->
+    <div class="p-4 content-section" id="section-profile" style="display: none;">
+        <h4 class="fw-bold mb-4" style="color:var(--ute-dark); border-bottom:2px solid var(--ute-dark); display:inline-block;">
+            <i class="fa-solid fa-user me-2"></i>THÔNG TIN CÁ NHÂN
+        </h4>
+        <div class="bg-white shadow-sm p-4 border rounded">
+            <div class="row">
+                <div class="col-md-4 text-center">
+                    <img src="https://ui-avatars.com/api/?name={{ hoten }}&background=005b9f&color=fff&size=150" alt="Avatar" class="rounded-circle mb-3">
+                    <h4 class="fw-bold">{{ hoten }}</h4>
+                    <p class="text-muted">Giảng Viên - {{ masv }}</p>
+                </div>
+                <div class="col-md-8">
+                    <table class="table table-bordered">
+                        <tr><th style="width: 30%">Khoa</th><td>Công nghệ Thông tin</td></tr>
+                        <tr><th>Chuyên ngành</th><td>Hệ thống nhúng và IoT</td></tr>
+                        <tr><th>Email</th><td>{{ masv }}@hcmute.edu.vn</td></tr>
+                        <tr><th>Số điện thoại</th><td>098x.xxx.xxx</td></tr>
+                        <tr><th>Học hàm / Học vị</th><td>Thạc sĩ</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- THỐNG KÊ ĐIỂM DANH -->
+    <div class="p-4 content-section" id="section-statistics" style="display: none;">
+        <h4 class="fw-bold mb-4" style="color:var(--ute-dark); border-bottom:2px solid var(--ute-dark); display:inline-block;">
+            <i class="fa-solid fa-chart-pie me-2"></i>THỐNG KÊ ĐIỂM DANH TỔNG QUAN
+        </h4>
+        <div class="bg-white shadow-sm p-4 border rounded">
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <label class="form-label">Lớp</label>
+                    <select id="statClassSelect" class="form-select" onchange="updateSessionSelect(); loadStatistics();">
+                        <option value="all">Tất cả các lớp</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Buổi học</label>
+                    <select id="statSessionSelect" class="form-select" onchange="loadStatistics()">
+                        <option value="all">Tất cả các buổi</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Thời gian</label>
+                    <select id="statTimeSelect" class="form-select" onchange="loadStatistics()">
+                        <option value="semester">Học kỳ này</option>
+                        <option value="month">Tháng này</option>
+                        <option value="week">Tuần này</option>
+                        <option value="all">Tất cả thời gian</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-8 text-center">
+                    <h5 class="fw-bold mb-3">Biểu đồ Xu hướng</h5>
+                    <canvas id="teacherBarChart" style="max-height: 400px;"></canvas>
+                </div>
+                <div class="col-md-4 text-center border-start">
+                    <h5 class="fw-bold mb-3">Tổng quan</h5>
+                    <canvas id="teacherPieChart" style="max-height: 400px;"></canvas>
+                </div>
             </div>
         </div>
     </div>
@@ -197,14 +282,7 @@
                                     <img id="cameraStream" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;" alt="Live Camera">
                                 </div>
                                 <div class="d-flex gap-2 mb-3">
-                                    <button class="btn btn-success flex-fill fw-bold" id="btnStart"
-                                            onclick="toggleCamera('start')">
-                                        <i class="fa-solid fa-play"></i> Bắt đầu
-                                    </button>
-                                    <button class="btn btn-danger flex-fill fw-bold" id="btnStop"
-                                            onclick="toggleCamera('stop')">
-                                        <i class="fa-solid fa-stop"></i> Dừng
-                                    </button>
+                                    <!-- Nút Bắt đầu và Dừng đã được di chuyển xuống dưới -->
                                 </div>
                                 <div class="alert alert-secondary small mb-0 text-center py-2">
                                     Trạng thái:<br>
@@ -233,22 +311,21 @@
                                     <button class="btn btn-outline-secondary btn-sm flex-fill" onclick="setDuration(45)">45'</button>
                                     <button class="btn btn-outline-secondary btn-sm flex-fill" onclick="setDuration(90)">90'</button>
                                 </div>
-                                <button class="btn btn-warning w-100 fw-bold"
+                                <button class="btn btn-success w-100 fw-bold mb-2" id="btnStartScan"
                                         onclick="confirmAutoScan()">
-                                    <i class="fa-solid fa-circle-check me-1"></i>
-                                    Xác nhận & Bắt đầu
+                                    <i class="fa-solid fa-play me-1"></i>
+                                    Bắt đầu điểm danh
                                 </button>
-
-                                <!-- Countdown display (hidden until started) -->
-                                <div id="autoScanStatus" class="d-none mt-3">
-                                    <div class="text-center bg-white rounded border p-2">
-                                        <small class="text-muted d-block">Tự động dừng sau</small>
-                                        <div id="countdown" class="countdown-display">--:--</div>
-                                    </div>
-                                    <button class="btn btn-outline-danger btn-sm w-100 mt-2"
-                                            onclick="cancelAutoScan()">
-                                        <i class="fa-solid fa-ban me-1"></i>Hủy tự động
-                                    </button>
+                                <button class="btn btn-danger w-100 fw-bold" id="btnStopScan"
+                                        onclick="toggleCamera('stop')" disabled>
+                                    <i class="fa-solid fa-stop me-1"></i>
+                                    Dừng điểm danh
+                                </button>
+                                
+                                <div id="scanTimerContainer" class="d-none mt-3 text-center border rounded p-2 bg-light">
+                                    <small class="text-muted fw-bold d-block mb-1">Thời gian đã trôi qua</small>
+                                    <div id="scanTimer" class="fs-4 fw-bold text-primary font-monospace" style="letter-spacing: 2px;">00:00</div>
+                                    <small id="scanTimerStatus" class="text-success fw-bold d-block mt-1">Trạng thái: Đúng giờ</small>
                                 </div>
                             </div>
                         </div>
@@ -335,6 +412,7 @@
      SCRIPTS
 ═══════════════════════════════════════════════════════ -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     // ─── Constants ────────────────────────────────────────
     const DAY_NAMES  = {2:'Thứ 2', 3:'Thứ 3', 4:'Thứ 4', 5:'Thứ 5', 6:'Thứ 6', 7:'Thứ 7', 8:'Chủ nhật'};
@@ -359,6 +437,8 @@
                 return;
             }
 
+            globalScheduleData = data.data;
+
             // Group by (thu, ca)
             const scheduleMap = {};
             data.data.forEach(b => {
@@ -369,6 +449,18 @@
 
             // Get unique days in order
             const days = [...new Set(data.data.map(b => b.thu))].sort((a,b) => a-b);
+            
+            // Populate statClassSelect with unique classes
+            const uniqueClasses = [...new Set(data.data.map(b => b.malop))];
+            const selectEl = document.getElementById('statClassSelect');
+            if (selectEl && selectEl.options.length <= 1) { // only "all" option exists initially
+                uniqueClasses.forEach(malop => {
+                    const opt = document.createElement('option');
+                    opt.value = malop;
+                    opt.textContent = `Lớp ${malop}`;
+                    selectEl.appendChild(opt);
+                });
+            }
 
             let html = '';
             days.forEach(thu => {
@@ -415,17 +507,82 @@
             `<i class="fa-solid fa-clipboard-check me-2"></i>QUẢN LÝ ĐIỂM DANH: ${tenMon}`;
         document.getElementById('statClass').textContent = tenLop;
         document.getElementById('uploadMaLop').value = tenLop;
-        resetCameraState();
 
-        new bootstrap.Modal(document.getElementById('attendanceModal')).show();
-        fetchAttendanceList();
+        fetch('/api/camera_status')
+        .then(r => r.json())
+        .then(status => {
+            if (status.is_running && status.buoi_id == buoiId) {
+                restoreCameraRunningState(status.start_time, status.duration);
+            } else {
+                resetCameraState();
+            }
+            new bootstrap.Modal(document.getElementById('attendanceModal')).show();
+            fetchAttendanceList();
+        });
+    }
+
+    let scanTimerInterval = null;
+
+    function startScanTimer(startTime, durationSeconds) {
+        if (scanTimerInterval) clearInterval(scanTimerInterval);
+        
+        document.getElementById('scanTimerContainer').classList.remove('d-none');
+        const timerEl = document.getElementById('scanTimer');
+        const statusEl = document.getElementById('scanTimerStatus');
+        
+        scanTimerInterval = setInterval(() => {
+            const elapsedSeconds = Math.floor(Date.now() / 1000 - startTime);
+            const m = String(Math.floor(elapsedSeconds / 60)).padStart(2, '0');
+            const s = String(elapsedSeconds % 60).padStart(2, '0');
+            timerEl.textContent = `${m}:${s}`;
+            
+            if (elapsedSeconds <= durationSeconds) {
+                timerEl.className = 'fs-4 fw-bold text-success font-monospace';
+                statusEl.textContent = 'Trạng thái nhận diện: Đúng giờ';
+                statusEl.className = 'text-success fw-bold d-block mt-1';
+            } else {
+                timerEl.className = 'fs-4 fw-bold text-danger font-monospace';
+                statusEl.textContent = 'Trạng thái nhận diện: Trễ';
+                statusEl.className = 'text-danger fw-bold d-block mt-1';
+            }
+        }, 1000);
+    }
+
+    function restoreCameraRunningState(startTime, durationSeconds) {
+        if (autoRefreshInterval) { clearInterval(autoRefreshInterval); autoRefreshInterval = null; }
+        
+        const span = document.getElementById('camStatus');
+        const camStream = document.getElementById('cameraStream');
+        const camPlaceholder = document.getElementById('cameraPlaceholder');
+        
+        span.textContent = 'ĐANG QUÉT MẶT...';
+        span.className   = 'fw-bold text-success';
+        camStream.src = '/api/cam_proxy?' + new Date().getTime();
+        camStream.style.display = 'block';
+        camPlaceholder.style.display = 'none';
+        
+        if (document.getElementById('btnStartScan')) document.getElementById('btnStartScan').disabled = true;
+        if (document.getElementById('btnStopScan')) document.getElementById('btnStopScan').disabled = false;
+        
+        startScanTimer(startTime, durationSeconds);
+        
+        autoRefreshInterval = setInterval(fetchAttendanceList, 2000);
     }
 
     function resetCameraState() {
         if (autoRefreshInterval) { clearInterval(autoRefreshInterval); autoRefreshInterval = null; }
-        cancelAutoScan();
+        if (scanTimerInterval) { clearInterval(scanTimerInterval); scanTimerInterval = null; }
+        
         document.getElementById('camStatus').textContent = 'Đang tắt';
         document.getElementById('camStatus').className  = 'fw-bold text-danger';
+        
+        const container = document.getElementById('scanTimerContainer');
+        if (container) container.classList.add('d-none');
+        
+        // Disable stop button, enable start button
+        if (document.getElementById('btnStartScan')) document.getElementById('btnStartScan').disabled = false;
+        if (document.getElementById('btnStopScan')) document.getElementById('btnStopScan').disabled = true;
+
         // Luon lam moi bang 3s khi modal mo (ho tro RFID khong can camera)
         autoRefreshInterval = setInterval(fetchAttendanceList, 3000);
     }
@@ -438,6 +595,9 @@
         formData.append('action', action);
         if (action === 'start') {
             formData.append('buoi_id', document.getElementById('currentBuoiId').value);
+            // Append scan duration explicitly here
+            const duration = document.getElementById('scanDuration').value;
+            formData.append('duration', duration);
         }
 
         fetch('/api/toggle_camera', { method: 'POST', body: formData })
@@ -453,6 +613,13 @@
                 camStream.src = '/api/cam_proxy?' + new Date().getTime();
                 camStream.style.display = 'block';
                 camPlaceholder.style.display = 'none';
+                
+                document.getElementById('btnStartScan').disabled = true;
+                document.getElementById('btnStopScan').disabled = false;
+                
+                const currentDuration = parseInt(document.getElementById('scanDuration').value) * 60;
+                startScanTimer(Date.now() / 1000, currentDuration);
+                
                 if (autoRefreshInterval) clearInterval(autoRefreshInterval);
                 autoRefreshInterval = setInterval(fetchAttendanceList, 2000);
             } else {
@@ -461,6 +628,14 @@
                 camStream.src = '';
                 camStream.style.display = 'none';
                 camPlaceholder.style.display = 'block';
+                
+                document.getElementById('btnStartScan').disabled = false;
+                document.getElementById('btnStopScan').disabled = true;
+                
+                if (scanTimerInterval) { clearInterval(scanTimerInterval); scanTimerInterval = null; }
+                const container = document.getElementById('scanTimerContainer');
+                if (container) container.classList.add('d-none');
+                
                 // Dừng camera: giữ refresh 3s để vẫn bắt sự kiện RFID
                 if (autoRefreshInterval) clearInterval(autoRefreshInterval);
                 autoRefreshInterval = setInterval(fetchAttendanceList, 3000);
@@ -484,36 +659,9 @@
         const buoiId = document.getElementById('currentBuoiId').value;
         if (!buoiId) { alert('Chưa chọn buổi học!'); return; }
 
-        const h = Math.floor(duration / 60);
-        const m = duration % 60;
-        const display = h > 0 ? `${h} giờ ${m} phút` : `${m} phút`;
-        if (!confirm(`Xác nhận bắt đầu quét tự động?\nThời gian: ${display}\nHệ thống sẽ tự động DỪNG khi hết giờ.`)) return;
+        if (!confirm(`Xác nhận bắt đầu điểm danh?\nThời gian hợp lệ (Đúng giờ): ${duration} phút\nSau thời gian này, sinh viên được tính là "Trễ".\nLưu ý: Camera sẽ không tự tắt, bạn cần bấm Dừng điểm danh.`)) return;
 
         toggleCamera('start');
-
-        const endTime = Date.now() + duration * 60_000;
-        document.getElementById('autoScanStatus').classList.remove('d-none');
-
-        if (countdownInterval) clearInterval(countdownInterval);
-        countdownInterval = setInterval(() => {
-            const remaining = endTime - Date.now();
-            if (remaining <= 0) {
-                clearInterval(countdownInterval);
-                countdownInterval = null;
-                toggleCamera('stop');
-                document.getElementById('autoScanStatus').classList.add('d-none');
-                alert('✅ Quét tự động kết thúc!');
-            } else {
-                const mm = String(Math.floor(remaining / 60_000)).padStart(2, '0');
-                const ss = String(Math.floor((remaining % 60_000) / 1_000)).padStart(2, '0');
-                document.getElementById('countdown').textContent = `${mm}:${ss}`;
-            }
-        }, 1000);
-    }
-
-    function cancelAutoScan() {
-        if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
-        document.getElementById('autoScanStatus')?.classList.add('d-none');
     }
 
     // ══════════════════════════════════════════════════════
@@ -615,9 +763,11 @@
         const next = current === 'Đúng giờ' ? 'Trễ'
                    : current === 'Trễ'      ? 'Vắng'
                                             : 'Đúng giờ';
+        const buoiId = document.getElementById('currentBuoiId').value;
         const fd = new FormData();
         fd.append('masv', masv);
         fd.append('status', next);
+        fd.append('buoi_id', buoiId);
         fetch('/api/update_status', { method: 'POST', body: fd })
         .then(r => r.json())
         .then(() => fetchAttendanceList());
@@ -658,12 +808,118 @@
     // ──────────────────────────────────────────────────────
     //  Init
     // ──────────────────────────────────────────────────────
+    let teacherPieChart = null;
+    let teacherBarChart = null;
+    let globalScheduleData = [];
+
+    function switchTab(tabId) {
+        document.querySelectorAll('.content-section').forEach(el => el.style.display = 'none');
+        document.getElementById('section-' + tabId).style.display = 'block';
+        
+        // Cập nhật nav-link active class
+        document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+        const activeLink = document.querySelector(`.nav-link[onclick="switchTab('${tabId}')"]`);
+        if(activeLink) activeLink.classList.add('active');
+        else if(tabId === 'schedule') document.getElementById('nav-schedule').classList.add('active');
+        
+        if (tabId === 'statistics') {
+            loadStatistics();
+        }
+    }
+
+    function updateSessionSelect() {
+        const malop = document.getElementById('statClassSelect').value;
+        const sessionSelect = document.getElementById('statSessionSelect');
+        sessionSelect.innerHTML = '<option value="all">Tất cả các buổi</option>';
+        if (malop !== 'all') {
+            // Find unique sessions for this class
+            const classSessions = globalScheduleData.filter(b => b.malop === malop);
+            const uniqueDays = [...new Set(classSessions.map(b => b.thu))].sort((a,b) => a-b);
+            uniqueDays.forEach(thu => {
+                const opt = document.createElement('option');
+                opt.value = thu;
+                opt.textContent = `Thứ ${thu}`;
+                sessionSelect.appendChild(opt);
+            });
+        }
+    }
+
+    function loadStatistics() {
+        const malop = document.getElementById('statClassSelect') ? document.getElementById('statClassSelect').value : 'all';
+        const session = document.getElementById('statSessionSelect') ? document.getElementById('statSessionSelect').value : 'all';
+        const timeRange = document.getElementById('statTimeSelect') ? document.getElementById('statTimeSelect').value : 'semester';
+        
+        fetch(`/api/teacher_statistics?malop=${malop}&thu=${session}&time_range=${timeRange}`)
+        .then(res => res.json())
+        .then(data => {
+            if(data.status === 'ok') {
+                // PIE CHART
+                const ctxPie = document.getElementById('teacherPieChart').getContext('2d');
+                if(teacherPieChart) teacherPieChart.destroy();
+                
+                const pieData = data.data.pie;
+                teacherPieChart = new Chart(ctxPie, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Đúng giờ', 'Trễ', 'Vắng'],
+                        datasets: [{
+                            data: [pieData['Đúng giờ'] || 0, pieData['Trễ'] || 0, pieData['Vắng'] || 0],
+                            backgroundColor: ['#28a745', '#ffc107', '#dc3545'],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+                });
+
+                // BAR CHART
+                const ctxBar = document.getElementById('teacherBarChart').getContext('2d');
+                if(teacherBarChart) teacherBarChart.destroy();
+                
+                const barData = data.data.bar;
+                teacherBarChart = new Chart(ctxBar, {
+                    type: 'bar',
+                    data: {
+                        labels: barData.map(d => d.ngayhoc),
+                        datasets: [
+                            {
+                                label: 'Đúng giờ',
+                                data: barData.map(d => d.dunggio),
+                                backgroundColor: '#28a745'
+                            },
+                            {
+                                label: 'Trễ',
+                                data: barData.map(d => d.tre),
+                                backgroundColor: '#ffc107'
+                            },
+                            {
+                                label: 'Vắng',
+                                data: barData.map(d => d.vang),
+                                backgroundColor: '#dc3545'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            x: { stacked: true },
+                            y: { stacked: true, beginAtZero: true }
+                        },
+                        plugins: {
+                            legend: { position: 'bottom' }
+                        }
+                    }
+                });
+            } else {
+                console.error("Lỗi tải thống kê", data.msg);
+            }
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         loadSchedule();
         // Dọn refresh interval khi đóng modal để không polling ngầm
         document.getElementById('attendanceModal').addEventListener('hidden.bs.modal', () => {
             if (autoRefreshInterval) { clearInterval(autoRefreshInterval); autoRefreshInterval = null; }
-            cancelAutoScan();
         });
     });
 </script>

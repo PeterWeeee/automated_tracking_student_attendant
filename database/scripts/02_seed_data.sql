@@ -14,11 +14,11 @@ INSERT INTO NguoiDung (MaNguoiDung, MatKhau, HoTen, VaiTro) VALUES
 GO
 
 -- 2. LỚP HỌC PHẦN
-INSERT INTO LopHocPhan (MaLop, TenMonHoc, MaMon, MaGV) VALUES
-('241102B',   N'Vạn Vật Kết Nối',         'INOT231780', 'GV01'),
-('241104B',   N'An toàn thông tin',        'INSE330380', 'GV02'),
-('241101C',   N'Tiếng Anh Chuyên ngành',   'ENGL330001', 'GV03'),
-('24110CTNA', N'Trí tuệ nhân tạo',         'ARIN330585', 'GV04');
+INSERT INTO LopHocPhan (MaLop, TenMonHoc, MaMon, SoTC, NamHoc, HocKy, MaGV) VALUES
+('241102B',   N'Vạn Vật Kết Nối',         'INOT231780', 3, '2024-2025', 1, 'GV01'),
+('241104B',   N'An toàn thông tin',       'INSE330380', 3, '2024-2025', 1, 'GV02'),
+('241101C',   N'Tiếng Anh Chuyên ngành',  'ENGL330001', 2, '2024-2025', 1, 'GV03'),
+('24110CTNA', N'Trí tuệ nhân tạo',        'ARIN330585', 3, '2024-2025', 2, 'GV04');
 GO
 
 -- 3. BUỔI HỌC

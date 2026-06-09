@@ -82,14 +82,15 @@
         </ul>
         <div class="menu-title mt-3">Học Tập</div>
         <ul class="nav flex-column">
-            <li class="nav-item"><a class="nav-link active" href="#"><i class="fa-solid fa-calendar-days"></i> Thời khóa biểu</a></li>
+            <li class="nav-item"><a class="nav-link active" href="#" onclick="switchTab('schedule')" id="nav-schedule"><i class="fa-solid fa-calendar-days"></i> Thời khóa biểu</a></li>
+            <li class="nav-item"><a class="nav-link text-warning" href="#" onclick="switchTab('statistics')"><i class="fa-solid fa-chart-pie"></i> Thống kê học tập</a></li>
             <li class="nav-item"><a class="nav-link text-danger fw-bold mt-5" href="/logout"><i class="fa-solid fa-right-from-bracket text-danger"></i> Đăng xuất</a></li>
         </ul>
     </div>
 
     <div class="main-content">
         <div class="topbar d-flex justify-content-between"><span>TRƯỜNG ĐẠI HỌC CÔNG NGHỆ KỸ THUẬT TP.HCM</span></div>
-        <div class="p-4">
+        <div class="p-4 content-section" id="section-schedule">
             <h4 class="fw-bold mb-4">THỜI KHÓA BIỂU</h4>
 
             <div class="table-responsive bg-white shadow-sm p-3 border rounded">
@@ -183,6 +184,53 @@
                 </table>
             </div>
         </div>
+
+        <div class="p-4 content-section" id="section-statistics" style="display: none;">
+            <h4 class="fw-bold mb-4"><i class="fa-solid fa-chart-pie me-2"></i>THỐNG KÊ ĐIỂM DANH CÁ NHÂN</h4>
+            <div class="bg-white shadow-sm p-4 border rounded">
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <label class="form-label">Năm học</label>
+                        <select id="statNamHocSelect" class="form-select" onchange="loadStatistics()">
+                            <option value="2024-2025">2024-2025</option>
+                            <option value="2023-2024">2023-2024</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Học kỳ</label>
+                        <select id="statHocKySelect" class="form-select" onchange="loadStatistics()">
+                            <option value="1">Học kỳ 1</option>
+                            <option value="2">Học kỳ 2</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="table-responsive mt-3">
+                    <table class="table table-bordered table-hover text-center align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th rowspan="2" style="background-color: #f8f9fa;">Mã lớp học phần</th>
+                                <th rowspan="2" style="background-color: #f8f9fa;">Tên lớp học phần</th>
+                                <th rowspan="2" style="background-color: #f8f9fa;">Số TC</th>
+                                <th colspan="4" style="background-color: #e2e3e5;">Thời gian học</th>
+                                <th colspan="2" style="background-color: #f8d7da;">Điểm danh</th>
+                            </tr>
+                            <tr>
+                                <th style="background-color: #e2e3e5;">Ngày</th>
+                                <th style="background-color: #e2e3e5;">Thứ</th>
+                                <th style="background-color: #e2e3e5;">Phòng học</th>
+                                <th style="background-color: #e2e3e5;">Tiết</th>
+                                <th style="background-color: #f8d7da;">Trễ</th>
+                                <th style="background-color: #f8d7da;">Vắng</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentSummaryTableBody">
+                            <tr><td colspan="9">Đang tải dữ liệu...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="modal fade" id="historyModal" tabindex="-1" aria-hidden="true">
@@ -211,7 +259,81 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
+        let studentChart = null;
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.content-section').forEach(el => el.style.display = 'none');
+            document.getElementById('section-' + tabId).style.display = 'block';
+            
+            document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+            const activeLink = document.querySelector(`.nav-link[onclick="switchTab('${tabId}')"]`);
+            if(activeLink) activeLink.classList.add('active');
+            else if(tabId === 'schedule') document.getElementById('nav-schedule').classList.add('active');
+            
+            if (tabId === 'statistics') {
+                loadStatistics();
+            }
+        }
+
+        function loadStatistics() {
+            const namHoc = document.getElementById('statNamHocSelect') ? document.getElementById('statNamHocSelect').value : '2024-2025';
+            const hocKy = document.getElementById('statHocKySelect') ? document.getElementById('statHocKySelect').value : '1';
+            
+            const tbody = document.getElementById('studentSummaryTableBody');
+            tbody.innerHTML = '<tr><td colspan="9"><i class="fa-solid fa-spinner fa-spin"></i> Đang tải dữ liệu...</td></tr>';
+            
+            fetch(`/api/student_attendance_summary?nam_hoc=${namHoc}&hoc_ky=${hocKy}`)
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'ok') {
+                    if(data.data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="9">Chưa có thông tin điểm danh</td></tr>';
+                        return;
+                    }
+
+                    const DAY_NAMES = {2:'Thứ 2', 3:'Thứ 3', 4:'Thứ 4', 5:'Thứ 5', 6:'Thứ 6', 7:'Thứ 7', 8:'Chủ nhật'};
+                    let html = '';
+                    
+                    data.data.forEach(cls => {
+                        const sessions = cls.sessions;
+                        if (sessions.length === 0) return;
+                        
+                        html += `<tr>`;
+                        html += `<td rowspan="${sessions.length}">${cls.malop}</td>`;
+                        html += `<td rowspan="${sessions.length}">${cls.tenmon}</td>`;
+                        html += `<td rowspan="${sessions.length}">${cls.sotc}</td>`;
+                        
+                        sessions.forEach((sess, idx) => {
+                            if (idx > 0) html += `<tr>`;
+                            html += `<td>${sess.ngay}</td>`;
+                            html += `<td>${DAY_NAMES[sess.thu] || 'N/A'}</td>`;
+                            html += `<td>${sess.phong || ''}</td>`;
+                            html += `<td>${sess.tiet || ''}</td>`;
+                            
+                            if (sess.trangthai === 'Trễ') {
+                                html += `<td class="text-danger fw-bold">X</td><td></td>`;
+                            } else if (sess.trangthai === 'Vắng') {
+                                html += `<td></td><td class="text-danger fw-bold">X</td>`;
+                            } else {
+                                html += `<td></td><td></td>`; // Đúng giờ
+                            }
+                            html += `</tr>`;
+                        });
+                    });
+                    
+                    tbody.innerHTML = html;
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="9" class="text-danger">Lỗi: ${data.msg}</td></tr>`;
+                }
+            })
+            .catch(err => {
+                tbody.innerHTML = `<tr><td colspan="9" class="text-danger">Lỗi kết nối server</td></tr>`;
+                console.error(err);
+            });
+        }
+
         function openHistory(maLop, tenMon) {
             document.getElementById('histTitle').textContent = `LỊCH SỬ ĐIỂM DANH: ${tenMon}`;
             var myModal = new bootstrap.Modal(document.getElementById('historyModal'));
