@@ -22,7 +22,7 @@ def get_attendance():
                 CASE WHEN sv.KhuonMatData IS NULL THEN 0 ELSE 1 END AS CoDuLieuMat,
                 CASE WHEN sv.MaTheRFID IS NULL THEN 0 ELSE 1 END AS CoDuLieuThe,
                 FORMAT(dd.ThoiGianQuet, 'HH:mm:ss') AS GioQuet,
-                ISNULL(dd.TrangThai, N'Vắng') AS TrangThai,
+                ISNULL(dd.TrangThai, N'Trống') AS TrangThai,
                 ISNULL(dd.GhiChu, '') AS GhiChu
             FROM BuoiHoc bh
             JOIN DanhSachMon dsm ON bh.MaMon = dsm.MaMon
@@ -65,6 +65,44 @@ def get_teacher_schedule():
             FROM BuoiHoc bh
             JOIN MonHoc mh ON bh.MaMon = mh.MaMon
             WHERE bh.MaGiangVien = ?
+            ORDER BY bh.ThuTrongTuan, bh.TietBatDau
+        """
+        cursor.execute(query, (session['user_id'],))
+        data = []
+        for r in cursor.fetchall():
+            data.append({
+                "mabuoi": r.MaBuoiHoc,
+                "ngayhoc": str(r.NgayHoc) if r.NgayHoc else "",
+                "thu": r.ThuTrongTuan,
+                "ca": r.Ca if r.Ca else "Sang",
+                "tiet_bd": r.TietBatDau,
+                "tiet_kt": r.TietKetThuc,
+                "phong": r.Phong if r.Phong else "",
+                "mamon": r.MaMon,
+                "tenmon": r.TenMonHoc
+            })
+        conn.close()
+        return jsonify({"status": "ok", "data": data})
+    except Exception as e:
+        return jsonify({"status": "error", "msg": str(e)})
+
+
+@api_bp.route('/get_student_schedule')
+def get_student_schedule():
+    """Lấy lịch học của sinh viên đang đăng nhập."""
+    if not session.get('user_id'):
+        return jsonify({"status": "error", "msg": "Chưa đăng nhập"})
+    try:
+        conn = pyodbc.connect(Config.CONN_STR)
+        cursor = conn.cursor()
+        query = """
+            SELECT bh.MaBuoiHoc, bh.NgayHoc, bh.ThuTrongTuan, bh.Ca,
+                   bh.TietBatDau, bh.TietKetThuc, bh.MaPhong AS Phong,
+                   mh.MaMon, mh.TenMon AS TenMonHoc
+            FROM BuoiHoc bh
+            JOIN MonHoc mh ON bh.MaMon = mh.MaMon
+            JOIN DanhSachMon dsm ON bh.MaMon = dsm.MaMon
+            WHERE dsm.MaSV = ?
             ORDER BY bh.ThuTrongTuan, bh.TietBatDau
         """
         cursor.execute(query, (session['user_id'],))
@@ -135,7 +173,7 @@ def student_history():
             SELECT 
                 bh.NgayHoc, 
                 FORMAT(dd.ThoiGianQuet, 'HH:mm:ss') as GioQuet, 
-                ISNULL(dd.TrangThai, N'Vắng') as TrangThai
+                ISNULL(dd.TrangThai, N'Trống') as TrangThai
             FROM BuoiHoc bh
             LEFT JOIN DiemDanh dd ON bh.MaBuoiHoc = dd.MaBuoiHoc AND dd.MaSV = ?
             WHERE bh.MaMon = ?
@@ -179,7 +217,43 @@ def toggle_camera():
         return jsonify({"msg": f"Đã BẬT Camera AI tại phòng học!"})
     else:
         ext.camera_is_running = False
-        return jsonify({"msg": "Đã TẮT Camera AI"})
+        
+        buoi_id = request.form.get('buoi_id')
+        if not buoi_id:
+            buoi_id = getattr(ext, 'current_buoi_hoc_id', None)
+            
+        if buoi_id:
+            try:
+                conn = pyodbc.connect(Config.CONN_STR)
+                cursor = conn.cursor()
+                
+                # Get all students for this class
+                cursor.execute("""
+                    SELECT dsm.MaSV
+                    FROM BuoiHoc bh
+                    JOIN DanhSachMon dsm ON bh.MaMon = dsm.MaMon
+                    WHERE bh.MaBuoiHoc = ?
+                """, (buoi_id,))
+                all_students = set(r[0] for r in cursor.fetchall())
+                
+                # Get students already attended
+                cursor.execute("SELECT MaSV FROM DiemDanh WHERE MaBuoiHoc=?", (buoi_id,))
+                attended_students = set(r[0] for r in cursor.fetchall())
+                
+                absent_students = all_students - attended_students
+                
+                for sv in absent_students:
+                    cursor.execute("""
+                        INSERT INTO DiemDanh (MaBuoiHoc, MaSV, ThoiGianQuet, TrangThai, GhiChu)
+                        VALUES (?, ?, GETDATE(), N'Vắng', N'Hệ thống tự đánh vắng')
+                    """, (buoi_id, sv))
+                
+                conn.commit()
+                conn.close()
+            except Exception as e:
+                print(f"Lỗi tự đánh vắng: {e}")
+                
+        return jsonify({"msg": "Đã TẮT Camera AI và chốt điểm danh!"})
 
 
 @api_bp.route('/latest_scan')
@@ -432,9 +506,9 @@ def teacher_statistics():
             base_query += " AND MONTH(bh.NgayHoc) = MONTH(GETDATE()) AND YEAR(bh.NgayHoc) = YEAR(GETDATE())"
 
         # 1. TỔNG QUAN (Pie Chart)
-        query_pie = "SELECT ISNULL(dd.TrangThai, N'Vắng') AS TrangThai, COUNT(*) AS SoLuong " + base_query + " GROUP BY ISNULL(dd.TrangThai, N'Vắng')"
+        query_pie = "SELECT ISNULL(dd.TrangThai, N'Trống') AS TrangThai, COUNT(*) AS SoLuong " + base_query + " GROUP BY ISNULL(dd.TrangThai, N'Trống')"
         cursor.execute(query_pie, tuple(params))
-        pie_data = {"Đúng giờ": 0, "Trễ": 0, "Vắng": 0}
+        pie_data = {"Đúng giờ": 0, "Trễ": 0, "Vắng": 0, "Trống": 0}
         for r in cursor.fetchall():
             if r.TrangThai in pie_data:
                 pie_data[r.TrangThai] = r.SoLuong
@@ -443,9 +517,9 @@ def teacher_statistics():
 
         # 2. XU HƯỚNG THEO NGÀY (Bar Chart)
         query_bar = """
-            SELECT bh.NgayHoc, ISNULL(dd.TrangThai, N'Vắng') AS TrangThai, COUNT(*) AS SoLuong
+            SELECT bh.NgayHoc, ISNULL(dd.TrangThai, N'Trống') AS TrangThai, COUNT(*) AS SoLuong
             """ + base_query + """
-            GROUP BY bh.NgayHoc, ISNULL(dd.TrangThai, N'Vắng')
+            GROUP BY bh.NgayHoc, ISNULL(dd.TrangThai, N'Trống')
             ORDER BY bh.NgayHoc ASC
         """
         cursor.execute(query_bar, tuple(params))
@@ -455,8 +529,8 @@ def teacher_statistics():
         for r in cursor.fetchall():
             ngay = str(r.NgayHoc)
             if ngay not in trend_dict:
-                trend_dict[ngay] = {"Đúng giờ": 0, "Trễ": 0, "Vắng": 0}
-            status = r.TrangThai if r.TrangThai in trend_dict[ngay] else "Vắng"
+                trend_dict[ngay] = {"Đúng giờ": 0, "Trễ": 0, "Vắng": 0, "Trống": 0}
+            status = r.TrangThai if r.TrangThai in trend_dict[ngay] else "Trống"
             trend_dict[ngay][status] += r.SoLuong
             
         # Convert to list for frontend
@@ -466,7 +540,8 @@ def teacher_statistics():
                 "ngayhoc": ngay,
                 "dunggio": trend_dict[ngay]["Đúng giờ"],
                 "tre": trend_dict[ngay]["Trễ"],
-                "vang": trend_dict[ngay]["Vắng"]
+                "vang": trend_dict[ngay]["Vắng"],
+                "trong": trend_dict[ngay]["Trống"]
             })
 
         conn.close()
@@ -502,7 +577,7 @@ def student_attendance_summary():
                 bh.MaPhong AS Phong,
                 bh.TietBatDau,
                 bh.TietKetThuc,
-                ISNULL(dd.TrangThai, N'Vắng') AS TrangThai
+                ISNULL(dd.TrangThai, N'Trống') AS TrangThai
             FROM DanhSachMon dsm
             JOIN MonHoc mh ON dsm.MaMon = mh.MaMon
             JOIN BuoiHoc bh ON dsm.MaMon = bh.MaMon AND dsm.MaGiangVien = bh.MaGiangVien

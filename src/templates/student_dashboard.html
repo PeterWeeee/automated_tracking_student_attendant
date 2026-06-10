@@ -86,9 +86,108 @@
                 formData.append('rfid_code', rfid);
                 fetch('/update_rfid', { method: 'POST', body: formData })
                 .then(response => response.text())
-                .then(data => { alert(data); document.getElementById('rfidInput').value = ''; })
+                .then(data => { alert(data); });
             }
-            </script>
+
+    let globalScheduleData = [];
+    let currentWeekIndex = 0;
+    const WEEKS = [
+        { start: '2026-06-08', end: '2026-06-14', label: '08/06/2026 - 14/06/2026' },
+        { start: '2026-06-15', end: '2026-06-21', label: '15/06/2026 - 21/06/2026' },
+        { start: '2026-06-22', end: '2026-06-28', label: '22/06/2026 - 28/06/2026' },
+        { start: '2026-06-29', end: '2026-07-05', label: '29/06/2026 - 05/07/2026' }
+    ];
+    const DAY_NAMES = { 2: 'Thứ 2', 3: 'Thứ 3', 4: 'Thứ 4', 5: 'Thứ 5', 6: 'Thứ 6', 7: 'Thứ 7' };
+    const SESSIONS = ['Sang', 'Chieu', 'Toi'];
+
+    function initScheduleFilters() {
+        const select = document.getElementById('schTuan');
+        if (select) {
+            select.innerHTML = '';
+            WEEKS.forEach((w, idx) => {
+                select.options.add(new Option(w.label, idx));
+            });
+            select.value = 0;
+            document.getElementById('scheduleFilters').style.display = 'flex';
+        }
+    }
+    
+    function prevWeek() { if (currentWeekIndex > 0) { currentWeekIndex--; document.getElementById('schTuan').value = currentWeekIndex; renderSchedule(); } }
+    function nextWeek() { if (currentWeekIndex < WEEKS.length - 1) { currentWeekIndex++; document.getElementById('schTuan').value = currentWeekIndex; renderSchedule(); } }
+    function currWeek() { currentWeekIndex = 0; document.getElementById('schTuan').value = currentWeekIndex; renderSchedule(); }
+
+    async function loadSchedule() {
+        try {
+            const res  = await fetch('/api/get_student_schedule');
+            const data = await res.json();
+            document.getElementById('tkbLoading').style.display = 'none';
+
+            if (data.status !== 'ok' || data.data.length === 0) {
+                document.getElementById('tkbEmpty').style.display = 'block';
+                return;
+            }
+
+            globalScheduleData = data.data;
+            initScheduleFilters();
+            renderSchedule();
+        } catch (err) {
+            document.getElementById('tkbLoading').innerHTML =
+                `<div class="text-danger"><i class="fa-solid fa-triangle-exclamation me-1"></i>Lỗi tải lịch: ${err.message}</div>`;
+        }
+    }
+
+    function renderSchedule() {
+        const weekIdx = document.getElementById('schTuan') ? parseInt(document.getElementById('schTuan').value) : 0;
+        currentWeekIndex = weekIdx;
+        const week = WEEKS[weekIdx];
+
+        const filteredData = globalScheduleData.filter(b => {
+            if(!b.ngayhoc) return false;
+            return b.ngayhoc >= week.start && b.ngayhoc <= week.end;
+        });
+
+        const scheduleMap = {};
+        filteredData.forEach(b => {
+            const key = `${b.thu ?? 0}-${b.ca ?? 'Sang'}`;
+            if (!scheduleMap[key]) scheduleMap[key] = [];
+            scheduleMap[key].push(b);
+        });
+
+        const days = [2, 3, 4, 5, 6, 7]; 
+        let html = '';
+        days.forEach(thu => {
+            html += `<tr><td class="fw-bold">${DAY_NAMES[thu] ?? 'N/A'}</td>`;
+            SESSIONS.forEach(ca => {
+                html += '<td>';
+                const key = `${thu}-${ca}`;
+                (scheduleMap[key] || []).forEach(b => {
+                    const tiet  = (b.tiet_bd && b.tiet_kt) ? `${b.tiet_bd}->${b.tiet_kt}` : '';
+                    const phong = b.phong ? `${b.phong}` : '';
+                    const mon   = b.tenmon.replace(/'/g, "\\'");
+                    const mamon = b.mamon ? `${b.mamon}` : '';
+                    html += `
+                        <div class="cell-active">
+                            <span class="subject-name">Môn: ${b.tenmon} (${b.mamon})</span>
+                            <small class="d-block text-muted">Phòng: ${phong} | Tiết: ${tiet}</small>
+                            <span class="status-link" onclick="openHistory('${b.mamon}', '${mon}')">
+                                <i class="fa-solid fa-eye"></i> Xem lịch sử điểm danh
+                            </span>
+                        </div>`;
+                });
+                html += '</td>';
+            });
+            html += '</tr>';
+        });
+
+        document.getElementById('tkbBody').innerHTML = html;
+        document.getElementById('tkbEmpty').style.display = filteredData.length === 0 ? 'block' : 'none';
+        document.getElementById('tkbTableWrapper').style.display = filteredData.length > 0 ? 'block' : 'none';
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadSchedule();
+    });
+</script>
         </ul>
         <div class="menu-title mt-3">Học Tập</div>
         <ul class="nav flex-column">
@@ -103,95 +202,53 @@
         <div class="p-4 content-section" id="section-schedule">
             <h4 class="fw-bold mb-4">THỜI KHÓA BIỂU</h4>
 
-            <div class="table-responsive bg-white shadow-sm p-3 border rounded">
-                <table class="table table-bordered tkb-table mb-0">
-                    <thead><tr><th></th><th>Sáng</th><th>Chiều</th><th>Tối</th></tr></thead>
-                    <tbody>
-                        <tr>
-                            <td>Thứ 2</td>
-                            <td>
-                                <div class="cell-active">
-                                    <span class="subject-name">Môn: Vạn Vật Kết Nối (INOT231780)</span>
-                                    <small class="d-block text-muted">Phòng: A113 | Tiết: 1->4</small>
-                                    <span class="status-link" onclick="openHistory('INOT231780', 'Vạn Vật Kết Nối')">
-                                        <i class="fa-solid fa-eye"></i> Xem lịch sử điểm danh
-                                    </span>
-                                </div>
-                            </td>
-                            <td>
-                                <div class="cell-active">
-                                    <span class="subject-name">Môn: An toàn thông tin (INSE330380)</span>
-                                    <small class="d-block text-muted">Phòng: A2-401 | Tiết: 7->10</small>
-                                    <span class="status-link" onclick="openHistory('INSE330380', 'An toàn thông tin')">
-                                        <i class="fa-solid fa-eye"></i> Xem lịch sử điểm danh
-                                    </span>
-                                </div>
-                            </td>
-                            <td></td>
-                        </tr>
-                        <tr>
-                            <td>Thứ 3</td>
-                            <td>
-                                <div class="cell-active">
-                                    <span class="subject-name">Môn: Tiếng Anh Chuyên ngành (ENGL330001)</span>
-                                    <small class="d-block text-muted">Phòng: A123 | Tiết: 1->5</small>
-                                    <span class="status-link" onclick="openHistory('ENGL330001', 'Tiếng Anh Chuyên ngành')">
-                                        <i class="fa-solid fa-eye"></i> Xem lịch sử điểm danh
-                                    </span>
-                                </div>
-                            </td>
-                            <td>
-                                <div class="cell-active">
-                                    <span class="subject-name">Môn: Trí tuệ nhân tạo (ARIN330585)</span>
-                                    <small class="d-block text-muted">Phòng: A2-502 | Tiết: 7->10</small>
-                                    <span class="status-link" onclick="openHistory('ARIN330585', 'Trí tuệ nhân tạo')">
-                                        <i class="fa-solid fa-eye"></i> Xem lịch sử điểm danh
-                                    </span>
-                                </div>
-                            </td>
-                            <td></td>
-                        </tr>
-                        <tr>
-                            <td>Thứ 4</td>
-                            <td>
-                                <div class="cell-active">
-                                    <span class="subject-name">Môn: Vạn Vật Kết Nối (INOT231780)</span>
-                                    <small class="d-block text-muted">Phòng: A113 | Tiết: 1->4</small>
-                                    <span class="status-link" onclick="openHistory('INOT231780', 'Vạn Vật Kết Nối')">
-                                        <i class="fa-solid fa-eye"></i> Xem lịch sử điểm danh
-                                    </span>
-                                </div>
-                            </td>
-                            <td>
-                                <div class="cell-active">
-                                    <span class="subject-name">Môn: An toàn thông tin (INSE330380)</span>
-                                    <small class="d-block text-muted">Phòng: E4-102 | Tiết: 7->10</small>
-                                    <span class="status-link" onclick="openHistory('INSE330380', 'An toàn thông tin')">
-                                        <i class="fa-solid fa-eye"></i> Xem lịch sử điểm danh
-                                    </span>
-                                </div>
-                            </td>
-                            <td></td>
-                        </tr>
-                        <tr>
-                            <td>Thứ 5</td>
-                            <td></td>
-                            <td>
-                                <div class="cell-active">
-                                    <span class="subject-name">Môn: Trí tuệ nhân tạo (ARIN330585)</span>
-                                    <small class="d-block text-muted">Phòng: A2-502 | Tiết: 7->10</small>
-                                    <span class="status-link" onclick="openHistory('ARIN330585', 'Trí tuệ nhân tạo')">
-                                        <i class="fa-solid fa-eye"></i> Xem lịch sử điểm danh
-                                    </span>
-                                </div>
-                            </td>
-                            <td></td>
-                        </tr>
-                        <tr><td>Thứ 6</td><td></td><td></td><td></td></tr>
-                        <tr><td>Thứ 7</td><td></td><td></td><td></td></tr>
-                        <tr><td>Chủ nhật</td><td></td><td></td><td></td></tr>
-                    </tbody>
-                </table>
+            <div class="row mb-3 align-items-end" id="scheduleFilters" style="display:none;">
+                <div class="col-md-3">
+                    <label class="form-label small text-muted fw-bold">Năm học</label>
+                    <select id="schNamHoc" class="form-select form-select-sm" onchange="renderSchedule()">
+                        <option value="2025-2026">2025-2026</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted fw-bold">Học kỳ</label>
+                    <select id="schHocKy" class="form-select form-select-sm" onchange="renderSchedule()">
+                        <option value="2">Học kỳ 2</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small text-muted fw-bold">Tuần</label>
+                    <select id="schTuan" class="form-select form-select-sm" onchange="renderSchedule()">
+                        <!-- Rendered by JS -->
+                    </select>
+                </div>
+                <div class="col-md-2 text-end">
+                    <button class="btn btn-sm btn-primary" onclick="prevWeek()"><i class="fa-solid fa-backward-step"></i></button>
+                    <button class="btn btn-sm btn-primary" onclick="currWeek()"><i class="fa-solid fa-calendar-day"></i></button>
+                    <button class="btn btn-sm btn-primary" onclick="nextWeek()"><i class="fa-solid fa-forward-step"></i></button>
+                </div>
+            </div>
+
+            <div class="bg-white shadow-sm p-3 border rounded">
+                <!-- Loading state -->
+                <div id="tkbLoading" class="text-center text-muted py-5">
+                    <i class="fa-solid fa-spinner fa-spin fa-2x mb-3 text-primary"></i>
+                    <p class="mb-0">Đang tải lịch học...</p>
+                </div>
+
+                <!-- Empty state -->
+                <div id="tkbEmpty" class="text-center text-muted py-5" style="display:none;">
+                    <i class="fa-solid fa-calendar-xmark fa-3x mb-3 text-secondary"></i>
+                    <h6>Không có lịch học trong tuần này</h6>
+                    <p class="small">Vui lòng chọn tuần khác.</p>
+                </div>
+
+                <div class="table-responsive" id="tkbTableWrapper" style="display:none;">
+                    <table class="table table-bordered tkb-table mb-0">
+                        <thead><tr><th></th><th>Sáng</th><th>Chiều</th><th>Tối</th></tr></thead>
+                        <tbody id="tkbBody">
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -202,14 +259,12 @@
                     <div class="col-md-3">
                         <label class="form-label">Năm học</label>
                         <select id="statNamHocSelect" class="form-select" onchange="loadStatistics()">
-                            <option value="2024-2025">2024-2025</option>
-                            <option value="2023-2024">2023-2024</option>
+                            <option value="2025-2026">2025-2026</option>
                         </select>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Học kỳ</label>
                         <select id="statHocKySelect" class="form-select" onchange="loadStatistics()">
-                            <option value="1">Học kỳ 1</option>
                             <option value="2">Học kỳ 2</option>
                         </select>
                     </div>
@@ -288,8 +343,8 @@
         }
 
         function loadStatistics() {
-            const namHoc = document.getElementById('statNamHocSelect') ? document.getElementById('statNamHocSelect').value : '2024-2025';
-            const hocKy = document.getElementById('statHocKySelect') ? document.getElementById('statHocKySelect').value : '1';
+            const namHoc = document.getElementById('statNamHocSelect') ? document.getElementById('statNamHocSelect').value : '2025-2026';
+            const hocKy = document.getElementById('statHocKySelect') ? document.getElementById('statHocKySelect').value : '2';
             
             const tbody = document.getElementById('studentSummaryTableBody');
             tbody.innerHTML = '<tr><td colspan="9"><i class="fa-solid fa-spinner fa-spin"></i> Đang tải dữ liệu...</td></tr>';
@@ -359,7 +414,7 @@
                     return;
                 }
                 data.data.forEach(row => {
-                    let badgeClass = row.trangthai === 'Đúng giờ' ? 'bg-success' : (row.trangthai === 'Trễ' ? 'bg-warning text-dark' : 'bg-danger');
+                    let badgeClass = row.trangthai === 'Đúng giờ' ? 'bg-success' : (row.trangthai === 'Trễ' ? 'bg-warning text-dark' : (row.trangthai === 'Trống' ? 'bg-secondary' : 'bg-danger'));
                     html += `<tr>
                         <td class="fw-bold">${row.ngayhoc}</td>
                         <td class="text-muted">${row.gioquet}</td>

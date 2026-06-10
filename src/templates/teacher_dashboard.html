@@ -119,6 +119,32 @@
             <i class="fa-solid fa-calendar-week me-2"></i>LỊCH GIẢNG DẠY
         </h4>
 
+        <div class="row mb-3 align-items-end" id="scheduleFilters" style="display:none;">
+            <div class="col-md-3">
+                <label class="form-label small text-muted fw-bold">Năm học</label>
+                <select id="schNamHoc" class="form-select form-select-sm" onchange="renderSchedule()">
+                    <option value="2025-2026">2025-2026</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small text-muted fw-bold">Học kỳ</label>
+                <select id="schHocKy" class="form-select form-select-sm" onchange="renderSchedule()">
+                    <option value="2">Học kỳ 2</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small text-muted fw-bold">Tuần</label>
+                <select id="schTuan" class="form-select form-select-sm" onchange="renderSchedule()">
+                    <!-- Rendered by JS -->
+                </select>
+            </div>
+            <div class="col-md-2 text-end">
+                <button class="btn btn-sm btn-primary" onclick="prevWeek()"><i class="fa-solid fa-backward-step"></i></button>
+                <button class="btn btn-sm btn-primary" onclick="currWeek()"><i class="fa-solid fa-calendar-day"></i></button>
+                <button class="btn btn-sm btn-primary" onclick="nextWeek()"><i class="fa-solid fa-forward-step"></i></button>
+            </div>
+        </div>
+
         <!-- TKB Container -->
         <div class="bg-white shadow-sm p-3 border rounded">
             <!-- Loading state -->
@@ -130,8 +156,8 @@
             <!-- Empty state -->
             <div id="tkbEmpty" class="text-center text-muted py-5" style="display:none;">
                 <i class="fa-solid fa-calendar-xmark fa-3x mb-3 text-secondary"></i>
-                <h6>Chưa có lịch giảng dạy</h6>
-                <p class="small">Tài khoản này chưa được phân công lớp nào.</p>
+                <h6>Không có lịch giảng dạy trong tuần này</h6>
+                <p class="small">Vui lòng chọn tuần khác hoặc kiểm tra lại phân công.</p>
             </div>
 
             <!-- Schedule table -->
@@ -421,6 +447,30 @@
     // ══════════════════════════════════════════════════════
     //  TKB — Load & Render (chỉ lớp của GV đang đăng nhập)
     // ══════════════════════════════════════════════════════
+    let currentWeekIndex = 0;
+    const WEEKS = [
+        { start: '2026-06-08', end: '2026-06-14', label: '08/06/2026 - 14/06/2026' },
+        { start: '2026-06-15', end: '2026-06-21', label: '15/06/2026 - 21/06/2026' },
+        { start: '2026-06-22', end: '2026-06-28', label: '22/06/2026 - 28/06/2026' },
+        { start: '2026-06-29', end: '2026-07-05', label: '29/06/2026 - 05/07/2026' }
+    ];
+
+    function initScheduleFilters() {
+        const select = document.getElementById('schTuan');
+        if (select) {
+            select.innerHTML = '';
+            WEEKS.forEach((w, idx) => {
+                select.options.add(new Option(w.label, idx));
+            });
+            select.value = 0;
+            document.getElementById('scheduleFilters').style.display = 'flex';
+        }
+    }
+    
+    function prevWeek() { if (currentWeekIndex > 0) { currentWeekIndex--; document.getElementById('schTuan').value = currentWeekIndex; renderSchedule(); } }
+    function nextWeek() { if (currentWeekIndex < WEEKS.length - 1) { currentWeekIndex++; document.getElementById('schTuan').value = currentWeekIndex; renderSchedule(); } }
+    function currWeek() { currentWeekIndex = 0; document.getElementById('schTuan').value = currentWeekIndex; renderSchedule(); }
+
     async function loadSchedule() {
         try {
             const res  = await fetch('/api/get_teacher_schedule');
@@ -451,47 +501,72 @@
             const selectEl = document.getElementById('statClassSelect');
             if (selectEl && selectEl.options.length <= 1) { // only "all" option exists initially
                 uniqueClasses.forEach(mamon => {
+                    const tenmon = data.data.find(x => x.mamon === mamon)?.tenmon || '';
                     const opt = document.createElement('option');
                     opt.value = mamon;
-                    opt.textContent = `Môn ${mamon}`;
+                    opt.textContent = `${tenmon} (${mamon})`;
                     selectEl.appendChild(opt);
                 });
             }
 
-            let html = '';
-            days.forEach(thu => {
-                html += `<tr><td class="fw-bold">${DAY_NAMES[thu] ?? 'N/A'}</td>`;
-                SESSIONS.forEach(ca => {
-                    html += '<td>';
-                    const key = `${thu}-${ca}`;
-                    (scheduleMap[key] || []).forEach(b => {
-                        const tiet  = (b.tiet_bd && b.tiet_kt) ? `Tiết ${b.tiet_bd}→${b.tiet_kt}` : '';
-                        const phong = b.phong ? `Phòng: <strong>${b.phong}</strong>` : '';
-                        const mon   = b.tenmon.replace(/'/g, "\\'");
-                        const mamon = b.mamon ? ` (${b.mamon})` : '';
-                        html += `
-                            <div class="cell-active"
-                                 onclick="openModal(${b.mabuoi}, '${mon}${mamon}', '${b.mamon}')">
-                                <span class="subject-name">${b.tenmon}</span>
-                                <small class="d-block text-muted mt-1">Môn: ${b.mamon} | ${tiet}</small>
-                                <small class="d-block text-muted">${phong}</small>
-                                <span class="badge bg-success mt-2">
-                                    <i class="fa-solid fa-clipboard-check"></i> Quản lý điểm danh
-                                </span>
-                            </div>`;
-                    });
-                    html += '</td>';
-                });
-                html += '</tr>';
-            });
-
-            document.getElementById('tkbBody').innerHTML = html;
-            document.getElementById('tkbTableWrapper').style.display = 'block';
+            updateSessionSelect();
+            initScheduleFilters();
+            renderSchedule();
 
         } catch (err) {
             document.getElementById('tkbLoading').innerHTML =
                 `<div class="text-danger"><i class="fa-solid fa-triangle-exclamation me-1"></i>Lỗi tải lịch: ${err.message}</div>`;
         }
+    }
+
+    function renderSchedule() {
+        const weekIdx = document.getElementById('schTuan') ? parseInt(document.getElementById('schTuan').value) : 0;
+        currentWeekIndex = weekIdx;
+        const week = WEEKS[weekIdx];
+
+        const filteredData = globalScheduleData.filter(b => {
+            if(!b.ngayhoc) return false;
+            return b.ngayhoc >= week.start && b.ngayhoc <= week.end;
+        });
+
+        const scheduleMap = {};
+        filteredData.forEach(b => {
+            const key = `${b.thu ?? 0}-${b.ca ?? 'Sang'}`;
+            if (!scheduleMap[key]) scheduleMap[key] = [];
+            scheduleMap[key].push(b);
+        });
+
+        const days = [2, 3, 4, 5, 6, 7]; 
+        let html = '';
+        days.forEach(thu => {
+            html += `<tr><td class="fw-bold">${DAY_NAMES[thu] ?? 'N/A'}</td>`;
+            SESSIONS.forEach(ca => {
+                html += '<td>';
+                const key = `${thu}-${ca}`;
+                (scheduleMap[key] || []).forEach(b => {
+                    const tiet  = (b.tiet_bd && b.tiet_kt) ? `Tiết ${b.tiet_bd}→${b.tiet_kt}` : '';
+                    const phong = b.phong ? `Phòng: <strong>${b.phong}</strong>` : '';
+                    const mon   = b.tenmon.replace(/'/g, "\\'");
+                    const mamon = b.mamon ? ` (${b.mamon})` : '';
+                    html += `
+                        <div class="cell-active"
+                             onclick="openModal(${b.mabuoi}, '${mon}${mamon}', '${b.mamon}')">
+                            <span class="subject-name">${b.tenmon}</span>
+                            <small class="d-block text-muted mt-1">Môn: ${b.mamon} | ${tiet}</small>
+                            <small class="d-block text-muted">${phong}</small>
+                            <span class="badge bg-success mt-2">
+                                <i class="fa-solid fa-clipboard-check"></i> Quản lý điểm danh
+                            </span>
+                        </div>`;
+                });
+                html += '</td>';
+            });
+            html += '</tr>';
+        });
+
+        document.getElementById('tkbBody').innerHTML = html;
+        document.getElementById('tkbEmpty').style.display = filteredData.length === 0 ? 'block' : 'none';
+        document.getElementById('tkbTableWrapper').style.display = filteredData.length > 0 ? 'block' : 'none';
     }
 
     // ══════════════════════════════════════════════════════
@@ -588,8 +663,8 @@
     function toggleCamera(action) {
         const formData = new FormData();
         formData.append('action', action);
+        formData.append('buoi_id', document.getElementById('currentBuoiId').value);
         if (action === 'start') {
-            formData.append('buoi_id', document.getElementById('currentBuoiId').value);
             // Append scan duration explicitly here
             const duration = document.getElementById('scanDuration').value;
             formData.append('duration', duration);
@@ -677,9 +752,12 @@
 
             const total   = data.data.length;
             const present = data.data.filter(s => s.trangthai === 'Đúng giờ' || s.trangthai === 'Trễ').length;
+            const empty   = data.data.filter(s => s.trangthai === 'Trống').length;
+            const absent  = total - present - empty;
+            
             document.getElementById('statTotal').textContent   = total;
             document.getElementById('statPresent').textContent = present;
-            document.getElementById('statAbsent').textContent  = total - present;
+            document.getElementById('statAbsent').textContent  = absent;
 
             if (total === 0) {
                 tbody.innerHTML = '<tr><td colspan="7" class="text-muted py-5">Không có sinh viên nào trong lớp này.</td></tr>';
@@ -690,6 +768,7 @@
             data.data.forEach(sv => {
                 const badge = sv.trangthai === 'Đúng giờ' ? 'bg-success'
                             : sv.trangthai === 'Trễ'      ? 'bg-warning text-dark'
+                            : sv.trangthai === 'Trống'    ? 'bg-secondary'
                                                           : 'bg-danger';
                 const ai = sv.co_mat_ai === 0
                     ? '<span class="text-danger"><i class="fa-solid fa-triangle-exclamation"></i> Chưa UP</span>'
@@ -762,6 +841,7 @@
     function changeStatus(masv, current) {
         const next = current === 'Đúng giờ' ? 'Trễ'
                    : current === 'Trễ'      ? 'Vắng'
+                   : current === 'Vắng'     ? 'Trống'
                                             : 'Đúng giờ';
         const buoiId = document.getElementById('currentBuoiId').value;
         const fd = new FormData();
@@ -828,28 +908,36 @@
     }
 
     function updateSessionSelect() {
-        const malop = document.getElementById('statClassSelect').value;
+        const mamon = document.getElementById('statClassSelect').value;
         const sessionSelect = document.getElementById('statSessionSelect');
+        const currentValue = sessionSelect.value;
+        
         sessionSelect.innerHTML = '<option value="all">Tất cả các buổi</option>';
-        if (malop !== 'all') {
-            // Find unique sessions for this class
-            const classSessions = globalScheduleData.filter(b => b.malop === malop);
-            const uniqueDays = [...new Set(classSessions.map(b => b.thu))].sort((a,b) => a-b);
-            uniqueDays.forEach(thu => {
-                const opt = document.createElement('option');
-                opt.value = thu;
-                opt.textContent = `Thứ ${thu}`;
-                sessionSelect.appendChild(opt);
-            });
+        
+        let classSessions = globalScheduleData;
+        if (mamon !== 'all') {
+            classSessions = globalScheduleData.filter(b => b.mamon === mamon);
+        }
+        
+        const uniqueDays = [...new Set(classSessions.map(b => b.thu))].sort((a,b) => a-b);
+        uniqueDays.forEach(thu => {
+            const opt = document.createElement('option');
+            opt.value = thu;
+            opt.textContent = `${DAY_NAMES[thu] || 'Thứ ' + thu}`;
+            sessionSelect.appendChild(opt);
+        });
+
+        if (Array.from(sessionSelect.options).some(opt => opt.value == currentValue)) {
+            sessionSelect.value = currentValue;
         }
     }
 
     function loadStatistics() {
-        const malop = document.getElementById('statClassSelect') ? document.getElementById('statClassSelect').value : 'all';
+        const mamon = document.getElementById('statClassSelect') ? document.getElementById('statClassSelect').value : 'all';
         const session = document.getElementById('statSessionSelect') ? document.getElementById('statSessionSelect').value : 'all';
         const timeRange = document.getElementById('statTimeSelect') ? document.getElementById('statTimeSelect').value : 'semester';
         
-        fetch(`/api/teacher_statistics?malop=${malop}&thu=${session}&time_range=${timeRange}`)
+        fetch(`/api/teacher_statistics?mamon=${mamon}&thu=${session}&time_range=${timeRange}`)
         .then(res => res.json())
         .then(data => {
             if(data.status === 'ok') {
@@ -861,10 +949,10 @@
                 teacherPieChart = new Chart(ctxPie, {
                     type: 'doughnut',
                     data: {
-                        labels: ['Đúng giờ', 'Trễ', 'Vắng'],
+                        labels: ['Đúng giờ', 'Trễ', 'Vắng', 'Trống'],
                         datasets: [{
-                            data: [pieData['Đúng giờ'] || 0, pieData['Trễ'] || 0, pieData['Vắng'] || 0],
-                            backgroundColor: ['#28a745', '#ffc107', '#dc3545'],
+                            data: [pieData['Đúng giờ'] || 0, pieData['Trễ'] || 0, pieData['Vắng'] || 0, pieData['Trống'] || 0],
+                            backgroundColor: ['#28a745', '#ffc107', '#dc3545', '#6c757d'],
                             borderWidth: 1
                         }]
                     },
@@ -895,6 +983,11 @@
                                 label: 'Vắng',
                                 data: barData.map(d => d.vang),
                                 backgroundColor: '#dc3545'
+                            },
+                            {
+                                label: 'Trống',
+                                data: barData.map(d => d.trong),
+                                backgroundColor: '#6c757d'
                             }
                         ]
                     },
